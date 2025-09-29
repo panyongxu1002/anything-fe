@@ -520,7 +520,7 @@ export default function QueryResultDisplay({
         )}
       </div>
 
-      {queryResult.raw && (
+      {queryResult.raw != null && (
         <details className="border-t">
           <summary className="p-4 cursor-pointer text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50">
             View Raw Response
