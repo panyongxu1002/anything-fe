@@ -4,6 +4,8 @@ import { useState } from "react";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import { exampleQueries } from "@/config/exampleQueries";
 
+const DEFAULT_EXAMPLE_COUNT = 6;
+
 interface QueryResponse {
   success: boolean;
   sqlQuery?: string | null;
@@ -18,6 +20,15 @@ export default function Home() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAllExamples, setShowAllExamples] = useState(false);
+
+  const displayedExamples = showAllExamples
+    ? exampleQueries
+    : exampleQueries.slice(0, DEFAULT_EXAMPLE_COUNT);
+  const remainingExamples = Math.max(
+    exampleQueries.length - DEFAULT_EXAMPLE_COUNT,
+    0
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,15 +92,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-xl p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-6 sm:p-8 overflow-x-hidden">
+      <div className="max-w-4xl w-full mx-auto">
+        <div className="w-full bg-white rounded-none shadow-lg p-6 sm:rounded-xl sm:shadow-xl sm:p-8">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center sm:text-3xl sm:mb-8">
             Hubble AI Assistant
           </h1>
 
           <form onSubmit={handleSubmit} className="mb-8">
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -125,7 +136,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading || !query.trim()}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium cursor-pointer"
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium cursor-pointer sm:w-auto"
               >
                 {loading ? "Processing..." : "Query"}
               </button>
@@ -137,18 +148,29 @@ export default function Home() {
             <h3 className="text-lg font-semibold text-gray-700 mb-3">
               Example queries:
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {exampleQueries.map((example) => (
+            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3">
+              {displayedExamples.map((example) => (
                 <button
                   key={example}
                   onClick={() => setQuery(example)}
-                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
                   disabled={loading}
                 >
                   {example}
                 </button>
               ))}
             </div>
+            {remainingExamples > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllExamples((prev) => !prev)}
+                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+              >
+                {showAllExamples
+                  ? "Show fewer queries"
+                  : `Show ${remainingExamples} more queries`}
+              </button>
+            )}
           </div>
 
           {/* Error message */}
