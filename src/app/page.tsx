@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import QueryResultDisplay from '@/components/QueryResultDisplay';
-import { exampleQueries } from '@/config/exampleQueries';
+import { useState } from "react";
+import QueryResultDisplay from "@/components/QueryResultDisplay";
+import { exampleQueries } from "@/config/exampleQueries";
 
 interface QueryResponse {
   success: boolean;
@@ -14,7 +14,7 @@ interface QueryResponse {
 }
 
 export default function Home() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +29,14 @@ export default function Home() {
 
     try {
       const requestStart = performance.now();
-      const response = await fetch('/api/query', {
-        method: 'POST',
+      const response = await fetch("/api/query", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           question: query.trim(),
-          source: 'file',
+          source: "file",
           threshold: 0.7,
         }),
       });
@@ -48,18 +48,19 @@ export default function Home() {
         try {
           payload = JSON.parse(text) as QueryResponse;
         } catch (parseError) {
-          console.error('Failed to parse API response:', parseError, text);
+          console.error("Failed to parse API response:", parseError, text);
         }
       }
 
       if (!response.ok) {
-        const message = payload?.error || `Request failed with status ${response.status}`;
+        const message =
+          payload?.error || `Request failed with status ${response.status}`;
         setError(message);
         return;
       }
 
       if (!payload || !payload.success) {
-        setError(payload?.error || 'Query failed');
+        setError(payload?.error || "Query failed");
         return;
       }
 
@@ -72,8 +73,8 @@ export default function Home() {
         durationMs,
       });
     } catch (err) {
-      console.error('Query error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error("Query error:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">
             Hubble AI Assistant
           </h1>
-          
+
           <form onSubmit={handleSubmit} className="mb-8">
             <div className="flex gap-4">
               <div className="flex-1 relative">
@@ -94,18 +95,27 @@ export default function Home() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Enter your question (e.g., latest 2 txns)"
+                  placeholder="Enter your question"
                   className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-700"
                   disabled={loading}
                 />
                 {query && (
                   <button
                     type="button"
-                    onClick={() => setQuery('')}
+                    onClick={() => setQuery("")}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                     disabled={loading}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <line x1="18" y1="6" x2="6" y2="18"></line>
                       <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
@@ -117,14 +127,16 @@ export default function Home() {
                 disabled={loading || !query.trim()}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium cursor-pointer"
               >
-                {loading ? 'Processing...' : 'Query'}
+                {loading ? "Processing..." : "Query"}
               </button>
             </div>
           </form>
 
           {/* Example queries */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-3">Example queries:</h3>
+            <h3 className="text-lg font-semibold text-gray-700 mb-3">
+              Example queries:
+            </h3>
             <div className="flex flex-wrap gap-2">
               {exampleQueries.map((example) => (
                 <button
@@ -158,9 +170,7 @@ export default function Home() {
           )}
 
           {/* Result Display */}
-          {result && !loading ? (
-            <QueryResultDisplay result={result} />
-          ) : null}
+          {result && !loading ? <QueryResultDisplay result={result} /> : null}
         </div>
       </div>
     </div>
