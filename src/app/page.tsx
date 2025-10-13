@@ -104,55 +104,16 @@ export default function Home() {
                 Hubble AI Assistant
               </h1>
               <div className="relative">
-                <div className="flex items-center gap-2 px-4 py-2 pr-10 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full">
-                  {/* Chain Icon */}
-                  {selectedChain === 'solana' && (
-                    <svg className="w-4 h-4" viewBox="0 0 397.7 311.7" fill="url(#solana-gradient)">
-                      <defs>
-                        <linearGradient id="solana-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" style={{stopColor: '#9945FF'}} />
-                          <stop offset="100%" style={{stopColor: '#14F195'}} />
-                        </linearGradient>
-                      </defs>
-                      <path d="M64.6 237.9c2.4-2.4 5.7-3.8 9.2-3.8h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1l62.7-62.7z"/>
-                      <path d="M64.6 3.8C67.1 1.4 70.4 0 73.8 0h317.4c5.8 0 8.7 7 4.6 11.1l-62.7 62.7c-2.4 2.4-5.7 3.8-9.2 3.8H6.5c-5.8 0-8.7-7-4.6-11.1L64.6 3.8z"/>
-                      <path d="M333.1 120.1c-2.4-2.4-5.7-3.8-9.2-3.8H6.5c-5.8 0-8.7 7-4.6 11.1l62.7 62.7c2.4 2.4 5.7 3.8 9.2 3.8h317.4c5.8 0 8.7-7 4.6-11.1l-62.7-62.7z"/>
-                    </svg>
-                  )}
-                  {selectedChain === 'ethereum' && (
-                    <svg className="w-4 h-4" viewBox="0 0 256 417" fill="none">
-                      <path d="M127.961 0L125.656 7.869V285.168L127.961 287.472L255.922 212.324L127.961 0Z" fill="#343434"/>
-                      <path d="M127.962 0L0 212.324L127.962 287.472V153.776V0Z" fill="#8C8C8C"/>
-                      <path d="M127.961 312.187L126.656 313.778V406.956L127.961 417L256 237.06L127.961 312.187Z" fill="#3C3C3B"/>
-                      <path d="M127.962 417V312.187L0 237.06L127.962 417Z" fill="#8C8C8C"/>
-                      <path d="M127.961 287.472L255.922 212.324L127.961 153.776V287.472Z" fill="#141414"/>
-                      <path d="M0 212.324L127.962 287.472V153.776L0 212.324Z" fill="#393939"/>
-                    </svg>
-                  )}
-                  {selectedChain === 'base' && (
-                    <svg className="w-4 h-4" viewBox="0 0 111 111" fill="none">
-                      <circle cx="55.5" cy="55.5" r="55.5" fill="#0052FF"/>
-                      <path d="M54.8 78.7C68.1 78.7 78.9 67.9 78.9 54.6C78.9 41.3 68.1 30.5 54.8 30.5C43.2 30.5 33.5 38.6 31.3 49.5H66.4V59.7H31.3C33.5 70.6 43.2 78.7 54.8 78.7Z" fill="white"/>
-                    </svg>
-                  )}
-                  {selectedChain === 'bnb' && (
-                    <svg className="w-4 h-4" viewBox="0 0 126.61 126.61" fill="#F3BA2F">
-                      <path d="M38.73 53.2l24.59-24.58 24.6 24.6 14.3-14.31L63.32 0 24.43 38.88c.1.1 14.3 14.31 14.3 14.31zm-38.73 10.1L14.31 49 28.62 63.31c.1-.1-14.31 14.3-14.31 14.3zM38.73 73.41L63.32 98l38.9-38.89-14.31-14.3-24.6 24.6-24.6-24.6a7615.87 7615.87 0 0 0-14.29 14.29l-.1.1zm74.47-10.1l14.3-14.31-14.3-14.3-14.31 14.3 14.3 14.31z"/>
-                      <path d="M77.83 63.3L63.32 77.82 48.78 63.28c-4.7 4.7-9.4 9.4-14.1 14.1l24.59 24.6 24.6-24.6-5.91-5.91z"/>
-                    </svg>
-                  )}
-                  
-                  <select
-                    value={selectedChain}
-                    onChange={(e) => setSelectedChain(e.target.value)}
-                    className="appearance-none bg-transparent border-0 text-xs font-semibold text-purple-700 cursor-pointer focus:outline-none pr-6"
-                  >
-                    <option value="solana">Solana</option>
-                    <option value="ethereum" disabled>Ethereum - Coming Soon</option>
-                    <option value="base" disabled>Base - Coming Soon</option>
-                    <option value="bnb" disabled>BNB Chain - Coming Soon</option>
-                  </select>
-                </div>
+                <select
+                  value={selectedChain}
+                  onChange={(e) => setSelectedChain(e.target.value)}
+                  className="appearance-none flex items-center gap-2 px-4 py-2 pr-10 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full text-xs font-semibold text-purple-700 border-0 cursor-pointer hover:from-purple-200 hover:to-blue-200 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="solana">🟣 Solana</option>
+                  <option value="ethereum" disabled>⚫ Ethereum - Coming Soon</option>
+                  <option value="base" disabled>🔵 Base - Coming Soon</option>
+                  <option value="bnb" disabled>🟡 BNB Chain - Coming Soon</option>
+                </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
