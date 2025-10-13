@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Web3Provider from "@/context/Web3Provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Hubble AI Assistant",
-  description: "Hubble AI Assistant",
+  description: "Hubble AI Assistant with x402 Payment Integration",
 };
 
 export default function RootLayout({
@@ -28,7 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Web3Provider>{children}</Web3Provider>
+        {children}
       </body>
     </html>
   );

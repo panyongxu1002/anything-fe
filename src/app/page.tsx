@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
-import WalletConnectButton from "@/components/WalletConnectButton";
+import { useX402Payment } from "@/hooks/useX402Payment";
 import { exampleQueries } from "@/config/exampleQueries";
 
 const DEFAULT_EXAMPLE_COUNT = 6;
@@ -23,6 +23,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [showAllExamples, setShowAllExamples] = useState(false);
 
+  // X402 payment hook - all payment logic on server-side
+  const {
+    error: paymentError,
+    paymentResponse,
+    executeQuery,
+  } = useX402Payment();
+
   const displayedExamples = showAllExamples
     ? exampleQueries
     : exampleQueries.slice(0, DEFAULT_EXAMPLE_COUNT);
@@ -41,49 +48,43 @@ export default function Home() {
 
     try {
       const requestStart = performance.now();
-      const response = await fetch("/api/query", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: query.trim(),
-          source: "file",
-          threshold: 0.7,
-        }),
+      
+      // x402-fetch will automatically handle payment if 402 is returned
+      // User will see wallet signature popup automatically
+      const response = await executeQuery({
+        question: query.trim(),
+        source: "file",
+        threshold: 0.7,
       });
 
-      const text = await response.text();
-      let payload: QueryResponse | null = null;
-
-      if (text) {
-        try {
-          payload = JSON.parse(text) as QueryResponse;
-        } catch (parseError) {
-          console.error("Failed to parse API response:", parseError, text);
+      if (!response) {
+        // Check if there's a payment error
+        if (paymentError) {
+          setError(paymentError);
         }
-      }
-
-      if (!response.ok) {
-        const message =
-          payload?.error || `Request failed with status ${response.status}`;
-        setError(message);
-        return;
-      }
-
-      if (!payload || !payload.success) {
-        setError(payload?.error || "Query failed");
         return;
       }
 
       const durationMs = performance.now() - requestStart;
-      setResult({
-        success: true,
-        sqlQuery: payload.sqlQuery ?? null,
-        dbResults: payload.dbResults ?? [],
-        raw: payload.raw ?? payload,
+      
+      // Map X402 response to our QueryResponse format
+      const newResult = {
+        success: response.success,
+        sqlQuery: response.sqlQuery ?? null,
+        dbResults: response.dbResults ?? [],
+        raw: response.raw ?? response,
         durationMs,
+      };
+      
+      console.log('🎯 Setting result in page.tsx:', {
+        success: newResult.success,
+        sqlQuery: newResult.sqlQuery ? 'exists' : 'null',
+        dbResultsCount: newResult.dbResults.length,
+        hasRaw: !!newResult.raw,
+        durationMs: newResult.durationMs
       });
+      
+      setResult(newResult);
     } catch (err) {
       console.error("Query error:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -100,9 +101,6 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-gray-800 text-center sm:text-left sm:text-3xl">
               Hubble AI Assistant
             </h1>
-            <div className="flex justify-center sm:justify-end">
-              <WalletConnectButton />
-            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="mb-8">
@@ -197,8 +195,57 @@ export default function Home() {
             </div>
           )}
 
+          {/* Payment Success Message */}
+          {paymentResponse && paymentResponse.success && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h3 className="text-green-800 font-semibold mb-2 flex items-center gap-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Payment Successful
+              </h3>
+              <div className="text-sm text-green-700 space-y-2">
+                <p>Your payment has been processed successfully.</p>
+                {paymentResponse.transaction && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-green-600">Transaction Hash:</span>
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${paymentResponse.transaction}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs break-all text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 group"
+                    >
+                      {paymentResponse.transaction}
+                      <svg 
+                        className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Result Display */}
-          {result && !loading ? <QueryResultDisplay result={result} /> : null}
+          {(() => {
+            if (result && !loading) {
+              console.log('🎨 Rendering QueryResultDisplay with result:', {
+                success: result.success,
+                sqlQuery: result.sqlQuery ? 'exists' : 'null',
+                dbResultsCount: result.dbResults?.length || 0,
+                hasRaw: !!result.raw
+              });
+              return <QueryResultDisplay result={result} />;
+            } else {
+              console.log('❌ NOT rendering QueryResultDisplay:', { hasResult: !!result, loading });
+              return null;
+            }
+          })()}
         </div>
       </div>
     </div>
