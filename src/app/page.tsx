@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
+import WalletConnectButton from "@/components/WalletConnectButton";
 import { exampleQueries } from "@/config/exampleQueries";
 
 const DEFAULT_EXAMPLE_COUNT = 6;
@@ -95,9 +96,14 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-6 sm:p-8 overflow-x-hidden">
       <div className="max-w-4xl w-full mx-auto">
         <div className="w-full bg-white rounded-none shadow-lg p-6 sm:rounded-xl sm:shadow-xl sm:p-8">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center sm:text-3xl sm:mb-8">
-            Hubble AI Assistant
-          </h1>
+          <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:justify-between sm:items-center sm:mb-8">
+            <h1 className="text-2xl font-bold text-gray-800 text-center sm:text-left sm:text-3xl">
+              Hubble AI Assistant
+            </h1>
+            <div className="flex justify-center sm:justify-end">
+              <WalletConnectButton />
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="mb-8">
             <div className="flex flex-col gap-4 sm:flex-row">
