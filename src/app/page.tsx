@@ -202,7 +202,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-center sm:justify-end">
+            <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-end">
               <WalletConnectButton />
             </div>
           </div>
@@ -367,6 +367,23 @@ export default function Home() {
               return null;
             }
           })()}
+        </div>
+        
+        {/* x402 Badge & Pricing - Footer */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <a
+            href="https://www.x402.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block transition-opacity hover:opacity-80 cursor-pointer"
+            title="Powered by x402 Protocol"
+          >
+            <img
+              src="/x402-badge.png"
+              alt="x402 Payments enabled"
+              className="h-10"
+            />
+          </a>
         </div>
       </div>
     </div>
