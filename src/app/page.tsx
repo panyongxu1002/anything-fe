@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
 import { exampleQueries } from "@/config/exampleQueries";
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 
 const DEFAULT_EXAMPLE_COUNT = 6;
 
@@ -24,6 +25,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [selectedChain, setSelectedChain] = useState("solana");
+  
+  // Track pending query after wallet connection
+  const pendingQueryRef = useRef<string | null>(null);
 
   // X402 payment hook - uses user's wallet for payment
   const {
@@ -32,6 +36,68 @@ export default function Home() {
     executeQuery,
     isConnected,
   } = useX402Payment();
+
+  // RainbowKit connect modal
+  const { openConnectModal } = useConnectModal();
+
+  // Auto-execute pending query after wallet connects
+  useEffect(() => {
+    if (isConnected && pendingQueryRef.current) {
+      const pendingQuery = pendingQueryRef.current;
+      pendingQueryRef.current = null; // Clear pending query
+      
+      // Execute the query automatically
+      setLoading(true);
+      setError(null);
+      setResult(null);
+
+      const performQuery = async () => {
+        try {
+          const requestStart = performance.now();
+          
+          const response = await executeQuery({
+            question: pendingQuery,
+            source: "file",
+            threshold: 0.7,
+          });
+
+          if (!response) {
+            if (paymentError) {
+              setError(paymentError);
+            }
+            return;
+          }
+
+          const durationMs = performance.now() - requestStart;
+          
+          const newResult = {
+            success: response.success,
+            sqlQuery: response.sqlQuery ?? null,
+            dbResults: response.dbResults ?? [],
+            raw: response.raw ?? response,
+            durationMs,
+          };
+          
+          console.log('🎯 Setting result in page.tsx:', {
+            success: newResult.success,
+            sqlQuery: newResult.sqlQuery ? 'exists' : 'null',
+            dbResultsCount: newResult.dbResults.length,
+            hasRaw: !!newResult.raw,
+            durationMs: newResult.durationMs
+          });
+          
+          setResult(newResult);
+        } catch (err) {
+          console.error("Query error:", err);
+          setError(err instanceof Error ? err.message : "Unknown error");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      performQuery();
+    }
+  }, [isConnected, executeQuery, paymentError]);
 
   const displayedExamples = showAllExamples
     ? exampleQueries
@@ -44,6 +110,19 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
+
+    // Check if wallet is connected - auto open connect modal if not
+    if (!isConnected) {
+      // Save query for auto-execution after wallet connects
+      pendingQueryRef.current = query.trim();
+      
+      if (openConnectModal) {
+        openConnectModal();
+      } else {
+        setError("Please connect your wallet first to make queries");
+      }
+      return;
+    }
 
     setLoading(true);
     setError(null);
