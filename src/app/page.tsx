@@ -331,7 +331,7 @@ export default function Home() {
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-green-600">Transaction Hash:</span>
                     <a
-                      href={`https://sepolia.basescan.org/tx/${paymentResponse.transaction}`}
+                      href={`https://basescan.org/tx/${paymentResponse.transaction}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs break-all text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 group"
