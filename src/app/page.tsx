@@ -31,7 +31,6 @@ export default function Home() {
     paymentResponse,
     executeQuery,
     isConnected,
-    address,
   } = useX402Payment();
 
   const displayedExamples = showAllExamples
@@ -213,7 +212,7 @@ export default function Home() {
                 <div>
                   <h3 className="text-yellow-800 font-semibold">Wallet Required</h3>
                   <p className="text-yellow-700 text-sm mt-1">
-                    Please connect your wallet to query. You'll be prompted to pay with your wallet when needed.
+                    Please connect your wallet to query. You&apos;ll be prompted to pay with your wallet when needed.
                   </p>
                 </div>
               </div>

@@ -39,6 +39,7 @@ export function useX402Payment(): UseX402PaymentReturn {
       
       // Pass walletClient directly to x402-fetch (official pattern from x402 examples)
       // x402-fetch will use walletClient.signTypedData for EIP-3009 authorization
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return wrapFetchWithPayment(fetch, walletClient as any)
     } catch (err) {
       console.error('❌ Failed to create x402-fetch wrapper:', err)

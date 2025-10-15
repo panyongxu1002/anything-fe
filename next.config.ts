@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   /* config options here */
   webpack: (config) => {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    
+    // Ignore React Native dependencies (for MetaMask SDK in browser)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@react-native-async-storage/async-storage': false,
+    };
+    
     return config;
   },
   

@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
-import { mainnet, base, baseSepolia } from 'wagmi/chains'
+import { baseSepolia, base } from 'wagmi/chains'
 
 export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
 
@@ -10,7 +10,7 @@ if (!projectId) {
 export const config = getDefaultConfig({
   appName: 'Hubble AI Assistant',
   projectId,
-  chains: [baseSepolia],
+  chains: [baseSepolia, base],
   ssr: true,
 })
 
