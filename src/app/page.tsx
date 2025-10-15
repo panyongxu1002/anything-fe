@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
+import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
 import { exampleQueries } from "@/config/exampleQueries";
 
@@ -24,11 +25,13 @@ export default function Home() {
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [selectedChain, setSelectedChain] = useState("solana");
 
-  // X402 payment hook - all payment logic on server-side
+  // X402 payment hook - uses user's wallet for payment
   const {
     error: paymentError,
     paymentResponse,
     executeQuery,
+    isConnected,
+    address,
   } = useX402Payment();
 
   const displayedExamples = showAllExamples
@@ -121,6 +124,9 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            <div className="flex justify-center sm:justify-end">
+              <WalletConnectButton />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="mb-8">
@@ -196,6 +202,23 @@ export default function Home() {
               </button>
             )}
           </div>
+
+          {/* Wallet not connected warning */}
+          {!isConnected && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <h3 className="text-yellow-800 font-semibold">Wallet Required</h3>
+                  <p className="text-yellow-700 text-sm mt-1">
+                    Please connect your wallet to query. You'll be prompted to pay with your wallet when needed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error message */}
           {error && (

@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server';
-import { wrapFetchWithPayment, decodeXPaymentResponse } from 'x402-fetch';
-import { privateKeyToAccount } from 'viem/accounts';
 
 /**
  * POST /api/query
- * Handles x402 payment flow on the server-side (secure)
- * All payment logic and private key handling happens here
+ * Proxy to x402 gateway - forwards requests and payment headers from client
+ * Payment is handled by user's wallet on the client-side via x402-fetch
  */
 export async function POST(request: NextRequest) {
   try {
@@ -38,46 +36,30 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_X402_GATEWAY_URL || 
       'https://x402.bedev.hubble-rpc.xyz/lego/api/v1/query';
 
-    // Get private key from server-side environment variable (secure)
-    const privateKey = process.env.CLIENT_PRIVATE_KEY;
+    // Get X-PAYMENT header from client request (if present)
+    const xPaymentHeader = request.headers.get('x-payment') || request.headers.get('X-Payment');
     
-    if (!privateKey) {
-      console.error('❌ CLIENT_PRIVATE_KEY not configured');
-      return Response.json(
-        { success: false, error: 'Payment account not configured on server' },
-        { status: 500 }
-      );
-    }
-
     console.log('\n' + '='.repeat(80));
-    console.log('🚀 API Route: Processing query with x402 payment');
+    console.log('🚀 API Route: Proxying request to x402 gateway');
     console.log('='.repeat(80));
+    console.log('📤 Gateway URL:', gatewayUrl);
+    console.log('💳 Has Payment Header:', !!xPaymentHeader);
 
-    // Create account from private key (server-side only)
-    let account;
-    try {
-      account = privateKeyToAccount(privateKey as `0x${string}`);
-      console.log('✅ Created payment account:', account.address);
-    } catch (err) {
-      console.error('❌ Failed to create account:', err);
-      return Response.json(
-        { success: false, error: 'Failed to initialize payment account' },
-        { status: 500 }
-      );
+    // Prepare headers for gateway request
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Forward X-PAYMENT header from client if present
+    if (xPaymentHeader) {
+      headers['X-PAYMENT'] = xPaymentHeader;
+      console.log('🔐 Forwarding payment header from client');
     }
 
-    // Wrap fetch with x402 payment handling
-    const fetchWithPayment = wrapFetchWithPayment(fetch, account);
-    console.log('✅ Created x402-fetch wrapper');
-
-    console.log('📤 Sending request to gateway:', gatewayUrl);
-
-    // Make request with automatic payment handling
-    const response = await fetchWithPayment(gatewayUrl, {
+    // Forward request to x402 gateway
+    const response = await fetch(gatewayUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         question: message,
         source,
@@ -87,14 +69,17 @@ export async function POST(request: NextRequest) {
 
     console.log('📥 Gateway response status:', response.status);
 
-    // x402-fetch already handled 402, so we should not receive it here
-    // If we do, something went wrong
+    // Handle 402 Payment Required - return to client for payment
     if (response.status === 402) {
-      console.error('❌ Unexpected 402 - x402-fetch should have handled this');
-      return Response.json(
-        { success: false, error: 'Payment flow failed' },
-        { status: 500 }
-      );
+      const data = await response.json();
+      console.log('💳 Payment required - returning 402 to client');
+      
+      return Response.json(data, { 
+        status: 402,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
     }
 
     if (!response.ok) {
@@ -113,30 +98,33 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     console.log('✅ Query successful, data received');
     
-    // Get X-Payment-Response header from gateway response
+    // Get X-Payment-Response header from gateway
     const xPaymentResponseHeader = response.headers.get('x-payment-response') || 
                                     response.headers.get('X-Payment-Response');
     
-    let paymentInfo = null;
+    // Prepare response headers
+    const responseHeaders: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Forward X-Payment-Response header to client if present
     if (xPaymentResponseHeader) {
-      try {
-        paymentInfo = decodeXPaymentResponse(xPaymentResponseHeader);
-        console.log('💳 Payment successful:', paymentInfo);
-      } catch (e) {
-        console.warn('⚠️  Failed to decode payment response:', e);
-      }
+      responseHeaders['X-Payment-Response'] = xPaymentResponseHeader;
+      console.log('✅ Forwarding payment response header to client');
     }
     
     console.log('='.repeat(80) + '\n');
     
     // Return data in the expected format
-    return Response.json({
-      success: true,
-      sqlQuery: data?.sql_used ?? null,
-      dbResults: Array.isArray(data?.data) ? data.data : [],
-      raw: data,
-      paymentInfo, // Include payment info if available
-    });
+    return Response.json(
+      {
+        success: true,
+        sqlQuery: data?.sql_used ?? null,
+        dbResults: Array.isArray(data?.data) ? data.data : [],
+        raw: data,
+      },
+      { headers: responseHeaders }
+    );
 
   } catch (error) {
     console.error('❌ Query API error:', error);
