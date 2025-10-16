@@ -381,7 +381,7 @@ export default function Home() {
             <img
               src="/x402-badge.png"
               alt="x402 Payments enabled"
-              className="h-10"
+              className="h-5"
             />
           </a>
         </div>
