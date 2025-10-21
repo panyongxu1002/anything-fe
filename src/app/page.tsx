@@ -57,7 +57,6 @@ export default function Home() {
 
           const response = await executeQuery({
             question: pendingQuery,
-            threshold: 0.7,
           });
 
           if (!response) {
@@ -134,7 +133,6 @@ export default function Home() {
       // User will see wallet signature popup automatically
       const response = await executeQuery({
         question: query.trim(),
-        threshold: 0.7,
       });
 
       if (!response) {
