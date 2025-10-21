@@ -5,7 +5,7 @@ import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
 import { exampleQueries } from "@/config/exampleQueries";
-import { useConnectModal } from '@rainbow-me/rainbowkit';
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 
 const DEFAULT_EXAMPLE_COUNT = 6;
 
@@ -25,7 +25,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [showAllExamples, setShowAllExamples] = useState(false);
   const [selectedChain, setSelectedChain] = useState("solana");
-  
+
   // Track pending query after wallet connection
   const pendingQueryRef = useRef<string | null>(null);
 
@@ -45,7 +45,7 @@ export default function Home() {
     if (isConnected && pendingQueryRef.current) {
       const pendingQuery = pendingQueryRef.current;
       pendingQueryRef.current = null; // Clear pending query
-      
+
       // Execute the query automatically
       setLoading(true);
       setError(null);
@@ -54,10 +54,9 @@ export default function Home() {
       const performQuery = async () => {
         try {
           const requestStart = performance.now();
-          
+
           const response = await executeQuery({
             question: pendingQuery,
-            source: "file",
             threshold: 0.7,
           });
 
@@ -69,7 +68,7 @@ export default function Home() {
           }
 
           const durationMs = performance.now() - requestStart;
-          
+
           const newResult = {
             success: response.success,
             sqlQuery: response.sqlQuery ?? null,
@@ -77,15 +76,15 @@ export default function Home() {
             raw: response.raw ?? response,
             durationMs,
           };
-          
-          console.log('🎯 Setting result in page.tsx:', {
+
+          console.log("🎯 Setting result in page.tsx:", {
             success: newResult.success,
-            sqlQuery: newResult.sqlQuery ? 'exists' : 'null',
+            sqlQuery: newResult.sqlQuery ? "exists" : "null",
             dbResultsCount: newResult.dbResults.length,
             hasRaw: !!newResult.raw,
-            durationMs: newResult.durationMs
+            durationMs: newResult.durationMs,
           });
-          
+
           setResult(newResult);
         } catch (err) {
           console.error("Query error:", err);
@@ -115,7 +114,7 @@ export default function Home() {
     if (!isConnected) {
       // Save query for auto-execution after wallet connects
       pendingQueryRef.current = query.trim();
-      
+
       if (openConnectModal) {
         openConnectModal();
       } else {
@@ -130,12 +129,11 @@ export default function Home() {
 
     try {
       const requestStart = performance.now();
-      
+
       // x402-fetch will automatically handle payment if 402 is returned
       // User will see wallet signature popup automatically
       const response = await executeQuery({
         question: query.trim(),
-        source: "file",
         threshold: 0.7,
       });
 
@@ -148,7 +146,7 @@ export default function Home() {
       }
 
       const durationMs = performance.now() - requestStart;
-      
+
       // Map X402 response to our QueryResponse format
       const newResult = {
         success: response.success,
@@ -157,15 +155,15 @@ export default function Home() {
         raw: response.raw ?? response,
         durationMs,
       };
-      
-      console.log('🎯 Setting result in page.tsx:', {
+
+      console.log("🎯 Setting result in page.tsx:", {
         success: newResult.success,
-        sqlQuery: newResult.sqlQuery ? 'exists' : 'null',
+        sqlQuery: newResult.sqlQuery ? "exists" : "null",
         dbResultsCount: newResult.dbResults.length,
         hasRaw: !!newResult.raw,
-        durationMs: newResult.durationMs
+        durationMs: newResult.durationMs,
       });
-      
+
       setResult(newResult);
     } catch (err) {
       console.error("Query error:", err);
@@ -191,13 +189,29 @@ export default function Home() {
                   className="appearance-none flex items-center gap-2 px-4 py-2 pr-10 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full text-xs font-semibold text-purple-700 border-0 cursor-pointer hover:from-purple-200 hover:to-blue-200 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
                 >
                   <option value="solana">🟣 Solana</option>
-                  <option value="ethereum" disabled>⚫ Ethereum - Coming Soon</option>
-                  <option value="base" disabled>🔵 Base - Coming Soon</option>
-                  <option value="bnb" disabled>🟡 BNB Chain - Coming Soon</option>
+                  <option value="ethereum" disabled>
+                    ⚫ Ethereum - Coming Soon
+                  </option>
+                  <option value="base" disabled>
+                    🔵 Base - Coming Soon
+                  </option>
+                  <option value="bnb" disabled>
+                    🟡 BNB Chain - Coming Soon
+                  </option>
                 </select>
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <svg
+                    className="w-4 h-4 text-purple-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </div>
               </div>
@@ -285,13 +299,24 @@ export default function Home() {
           {!isConnected && (
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                <svg
+                  className="w-5 h-5 text-yellow-600 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <div>
-                  <h3 className="text-yellow-800 font-semibold">Wallet Required</h3>
+                  <h3 className="text-yellow-800 font-semibold">
+                    Wallet Required
+                  </h3>
                   <p className="text-yellow-700 text-sm mt-1">
-                    Please connect your wallet to query. You&apos;ll be prompted to pay with your wallet when needed.
+                    Please connect your wallet to query. You&apos;ll be prompted
+                    to pay with your wallet when needed.
                   </p>
                 </div>
               </div>
@@ -320,8 +345,16 @@ export default function Home() {
           {paymentResponse && paymentResponse.success && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
               <h3 className="text-green-800 font-semibold mb-2 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                <svg
+                  className="w-5 h-5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 Payment Successful
               </h3>
@@ -329,7 +362,9 @@ export default function Home() {
                 <p>Your payment has been processed successfully.</p>
                 {paymentResponse.transaction && (
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-green-600">Transaction Hash:</span>
+                    <span className="text-xs text-green-600">
+                      Transaction Hash:
+                    </span>
                     <a
                       href={`https://basescan.org/tx/${paymentResponse.transaction}`}
                       target="_blank"
@@ -337,13 +372,18 @@ export default function Home() {
                       className="font-mono text-xs break-all text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 group"
                     >
                       {paymentResponse.transaction}
-                      <svg 
-                        className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" 
-                        fill="none" 
-                        stroke="currentColor" 
+                      <svg
+                        className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        fill="none"
+                        stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                     </a>
                   </div>
@@ -355,20 +395,23 @@ export default function Home() {
           {/* Result Display */}
           {(() => {
             if (result && !loading) {
-              console.log('🎨 Rendering QueryResultDisplay with result:', {
+              console.log("🎨 Rendering QueryResultDisplay with result:", {
                 success: result.success,
-                sqlQuery: result.sqlQuery ? 'exists' : 'null',
+                sqlQuery: result.sqlQuery ? "exists" : "null",
                 dbResultsCount: result.dbResults?.length || 0,
-                hasRaw: !!result.raw
+                hasRaw: !!result.raw,
               });
               return <QueryResultDisplay result={result} />;
             } else {
-              console.log('❌ NOT rendering QueryResultDisplay:', { hasResult: !!result, loading });
+              console.log("❌ NOT rendering QueryResultDisplay:", {
+                hasResult: !!result,
+                loading,
+              });
               return null;
             }
           })()}
         </div>
-        
+
         {/* x402 Badge & Pricing - Footer */}
         <div className="mt-6 flex flex-col items-center gap-3">
           <a
