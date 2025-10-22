@@ -11,6 +11,6 @@ export const config = getDefaultConfig({
   appName: 'Hubble AI Assistant',
   projectId,
   chains: [ base],
-  ssr: true,
+  ssr: false, // Disabled to prevent indexedDB errors during build
 })
 
