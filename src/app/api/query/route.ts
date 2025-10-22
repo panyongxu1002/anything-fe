@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const source = typeof body?.source === 'string' ? body.source : 'file';
     const thresholdInput = body?.threshold;
     const threshold = typeof thresholdInput === 'number'
       ? thresholdInput
@@ -61,9 +60,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        question: message,
-        source,
-        threshold,
+        question: message
       }),
     });
 
