@@ -5,7 +5,7 @@ import Image from "next/image";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
-import { exampleQueries } from "@/config/exampleQueries";
+import { exampleQueries, exampleQueryCategories } from "@/config/exampleQueries";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 
 const DEFAULT_EXAMPLE_COUNT = 6;
@@ -24,7 +24,7 @@ export default function Home() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAllExamples, setShowAllExamples] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set([0]));
   const [selectedChain, setSelectedChain] = useState("solana");
 
   // Track pending query after wallet connection
@@ -98,13 +98,17 @@ export default function Home() {
     }
   }, [isConnected, executeQuery, paymentError]);
 
-  const displayedExamples = showAllExamples
-    ? exampleQueries
-    : exampleQueries.slice(0, DEFAULT_EXAMPLE_COUNT);
-  const remainingExamples = Math.max(
-    exampleQueries.length - DEFAULT_EXAMPLE_COUNT,
-    0
-  );
+  const toggleCategory = (index: number) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,34 +268,76 @@ export default function Home() {
             </div>
           </form>
 
-          {/* Example queries */}
+          {/* Example queries by category */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-3">
-              Example queries:
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+              Example Query Categories
             </h3>
-            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 lg:grid-cols-3">
-              {displayedExamples.map((example) => (
-                <button
-                  key={example}
-                  onClick={() => setQuery(example)}
-                  className="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-                  disabled={loading}
-                >
-                  {example}
-                </button>
-              ))}
+            <div className="space-y-3">
+              {exampleQueryCategories.map((category, categoryIndex) => {
+                const isExpanded = expandedCategories.has(categoryIndex);
+                return (
+                  <div
+                    key={categoryIndex}
+                    className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
+                  >
+                    {/* Category Header */}
+                    <button
+                      onClick={() => toggleCategory(categoryIndex)}
+                      className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors cursor-pointer"
+                      disabled={loading}
+                    >
+                      <div className="text-left flex-1">
+                        <h4 className="font-semibold text-gray-800 mb-1">
+                          {category.title}
+                        </h4>
+                        <p className="text-xs text-gray-600">
+                          {category.description}
+                        </p>
+                      </div>
+                      <div className="ml-4 flex-shrink-0">
+                        <svg
+                          className={`w-5 h-5 text-gray-600 transition-transform ${
+                            isExpanded ? "transform rotate-180" : ""
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {/* Category Queries */}
+                    {isExpanded && (
+                      <div className="p-3 bg-gray-50 border-t border-gray-200">
+                        <div className="grid grid-cols-1 gap-2">
+                          {category.queries.map((example, queryIndex) => (
+                            <button
+                              key={queryIndex}
+                              onClick={() => setQuery(example)}
+                              className="w-full text-left px-4 py-2.5 bg-white hover:bg-blue-50 rounded-lg text-sm leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-gray-200 hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                              disabled={loading}
+                            >
+                              <span className="text-gray-500 mr-2">
+                                {queryIndex + 1}.
+                              </span>
+                              {example}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            {remainingExamples > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAllExamples((prev) => !prev)}
-                className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-              >
-                {showAllExamples
-                  ? "Show fewer queries"
-                  : `Show ${remainingExamples} more queries`}
-              </button>
-            )}
           </div>
 
 
