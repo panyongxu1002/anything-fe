@@ -5,10 +5,8 @@ import Image from "next/image";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
-import { exampleQueries, exampleQueryCategories } from "@/config/exampleQueries";
+import { exampleQueryCategories } from "@/config/exampleQueries";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-
-const DEFAULT_EXAMPLE_COUNT = 6;
 
 interface QueryResponse {
   success: boolean;
@@ -24,7 +22,8 @@ export default function Home() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set([0]));
+  const [showExamples, setShowExamples] = useState(true);
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [selectedChain, setSelectedChain] = useState("solana");
 
   // Track pending query after wallet connection
@@ -270,74 +269,120 @@ export default function Home() {
 
           {/* Example queries by category */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              Example Query Categories
-            </h3>
-            <div className="space-y-3">
-              {exampleQueryCategories.map((category, categoryIndex) => {
-                const isExpanded = expandedCategories.has(categoryIndex);
-                return (
-                  <div
-                    key={categoryIndex}
-                    className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
-                  >
-                    {/* Category Header */}
-                    <button
-                      onClick={() => toggleCategory(categoryIndex)}
-                      className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors cursor-pointer"
-                      disabled={loading}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-700">
+                Example Query Categories
+              </h3>
+              <button
+                onClick={() => setShowExamples(!showExamples)}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                type="button"
+              >
+                {showExamples ? (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <div className="text-left flex-1">
-                        <h4 className="font-semibold text-gray-800 mb-1">
-                          {category.title}
-                        </h4>
-                        <p className="text-xs text-gray-600">
-                          {category.description}
-                        </p>
-                      </div>
-                      <div className="ml-4 flex-shrink-0">
-                        <svg
-                          className={`w-5 h-5 text-gray-600 transition-transform ${
-                            isExpanded ? "transform rotate-180" : ""
-                          }`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </div>
-                    </button>
-
-                    {/* Category Queries */}
-                    {isExpanded && (
-                      <div className="p-3 bg-gray-50 border-t border-gray-200">
-                        <div className="grid grid-cols-1 gap-2">
-                          {category.queries.map((example, queryIndex) => (
-                            <button
-                              key={queryIndex}
-                              onClick={() => setQuery(example)}
-                              className="w-full text-left px-4 py-2.5 bg-white hover:bg-blue-50 rounded-lg text-sm leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-gray-200 hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-                              disabled={loading}
-                            >
-                              <span className="text-gray-500 mr-2">
-                                {queryIndex + 1}.
-                              </span>
-                              {example}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                    Hide Examples
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                    Show Examples
+                  </>
+                )}
+              </button>
             </div>
+
+            {showExamples && (
+              <div className="space-y-2">
+                {exampleQueryCategories.map((category, categoryIndex) => {
+                  const isExpanded = expandedCategories.has(categoryIndex);
+                  return (
+                    <div
+                      key={categoryIndex}
+                      className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
+                    >
+                      {/* Category Header */}
+                      <button
+                        onClick={() => toggleCategory(categoryIndex)}
+                        className="w-full px-3 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors cursor-pointer"
+                        disabled={loading}
+                      >
+                        <div className="text-left flex-1">
+                          <h4 className="font-semibold text-gray-800 text-sm">
+                            {category.title}
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {category.description}
+                          </p>
+                        </div>
+                        <div className="ml-3 flex-shrink-0">
+                          <svg
+                            className={`w-4 h-4 text-gray-600 transition-transform ${
+                              isExpanded ? "transform rotate-180" : ""
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Category Queries */}
+                      {isExpanded && (
+                        <div className="p-2 bg-gray-50 border-t border-gray-200">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            {category.queries.map((example, queryIndex) => (
+                              <button
+                                key={queryIndex}
+                                onClick={() => setQuery(example)}
+                                className="w-full text-left px-3 py-2 bg-white hover:bg-blue-50 rounded text-xs leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-gray-200 hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                                disabled={loading}
+                              >
+                                <span className="text-gray-500 mr-1.5">
+                                  {queryIndex + 1}.
+                                </span>
+                                {example}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
 
