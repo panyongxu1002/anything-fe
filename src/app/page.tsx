@@ -366,10 +366,10 @@ export default function Home() {
                               <button
                                 key={queryIndex}
                                 onClick={() => setQuery(example)}
-                                className="w-full text-left px-3 py-2 bg-white hover:bg-blue-50 rounded text-xs leading-snug text-gray-700 whitespace-normal break-words transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-gray-200 hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                                className="w-full text-left px-3 py-3 bg-white hover:bg-blue-50 rounded text-sm leading-normal text-gray-700 whitespace-normal break-words transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
                                 disabled={loading}
                               >
-                                <span className="text-gray-500 mr-1.5">
+                                <span className="text-gray-500 mr-2">
                                   {queryIndex + 1}.
                                 </span>
                                 {example}
