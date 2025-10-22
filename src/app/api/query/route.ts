@@ -23,13 +23,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const thresholdInput = body?.threshold;
-    const threshold = typeof thresholdInput === 'number'
-      ? thresholdInput
-      : typeof thresholdInput === 'string' && !Number.isNaN(Number.parseFloat(thresholdInput))
-        ? Number.parseFloat(thresholdInput)
-        : 0.7;
-
     // Get the x402 gateway URL from environment variable
     const gatewayUrl = 
       process.env.NEXT_PUBLIC_X402_GATEWAY_URL || 

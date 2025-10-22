@@ -60,8 +60,6 @@ export interface X402PaymentResponse {
 
 export interface X402QueryRequest {
   question: string
-  source?: string
-  threshold?: number
 }
 
 export interface X402QueryResponse {

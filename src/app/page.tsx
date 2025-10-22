@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import { useX402Payment } from "@/hooks/useX402Payment";
@@ -392,10 +393,12 @@ export default function Home() {
             className="inline-block transition-opacity hover:opacity-80 cursor-pointer"
             title="Powered by x402 Protocol"
           >
-            <img
+            <Image
               src="/x402-badge.png"
               alt="x402 Payments enabled"
-              className="h-5"
+              width={100}
+              height={20}
+              className="h-5 w-auto"
             />
           </a>
         </div>
