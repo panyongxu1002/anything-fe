@@ -4,13 +4,21 @@ const nextConfig: NextConfig = {
   /* config options here */
   webpack: (config) => {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
-    
+
     // Ignore React Native dependencies (for MetaMask SDK in browser)
     config.resolve.alias = {
       ...config.resolve.alias,
       '@react-native-async-storage/async-storage': false,
     };
-    
+
+    // Handle Solana toolkit compatibility issues
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      'fs': false,
+      'path': false,
+      'crypto': false,
+    };
+
     return config;
   },
   

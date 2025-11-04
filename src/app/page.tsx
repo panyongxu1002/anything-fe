@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
-import { useX402Payment } from "@/hooks/useX402Payment";
+import { useX402PaymentAdapter } from "@/hooks/useX402PaymentAdapter";
 import { exampleQueryCategories } from "@/config/exampleQueries";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 interface QueryResponse {
   success: boolean;
@@ -29,16 +30,20 @@ export default function Home() {
   // Track pending query after wallet connection
   const pendingQueryRef = useRef<string | null>(null);
 
-  // X402 payment hook - uses user's wallet for payment
+  // X402 payment hook - auto-selects Solana or EVM based on ACTIVE_CHAIN
   const {
     error: paymentError,
     paymentResponse,
     executeQuery,
     isConnected,
-  } = useX402Payment();
+    chain,
+  } = useX402PaymentAdapter();
 
-  // RainbowKit connect modal
+  // RainbowKit connect modal (for EVM chains)
   const { openConnectModal } = useConnectModal();
+
+  // Solana wallet modal
+  const { setVisible } = useWalletModal();
 
   // Auto-execute pending query after wallet connects
   useEffect(() => {
@@ -118,7 +123,10 @@ export default function Home() {
       // Save query for auto-execution after wallet connects
       pendingQueryRef.current = query.trim();
 
-      if (openConnectModal) {
+      // Open appropriate wallet modal based on active chain
+      if (chain === 'solana') {
+        setVisible(true);
+      } else if (openConnectModal) {
         openConnectModal();
       } else {
         setError("Please connect your wallet first to make queries");
@@ -429,7 +437,11 @@ export default function Home() {
                       Transaction Hash:
                     </span>
                     <a
-                      href={`https://basescan.org/tx/${paymentResponse.transaction}`}
+                      href={
+                        chain === 'solana'
+                          ? `${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://explorer.solana.com'}/tx/${paymentResponse.transaction}`
+                          : `https://basescan.org/tx/${paymentResponse.transaction}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-xs break-all text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 group"
