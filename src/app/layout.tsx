@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ClientLayout from "@/components/ClientLayout";
 import { SolanaProvider } from "@/context/SolanaProvider";
-import { Web3Provider } from "@/context/Web3Provider";
+import Web3Provider from "@/context/Web3Provider";
 import "./globals.css";
 
 /**

@@ -105,12 +105,8 @@ export function SolanaProvider({
 }
 
 /**
- * 导出 Provider 的子组件 (可选)
- *
- * 如果需要在其他地方单独使用这些组件
+ * 注意：
+ * - ConnectionProvider、WalletProvider 来自 @solana/wallet-adapter-react
+ * - WalletModalProvider 来自 @solana/wallet-adapter-react-ui
+ * - 通常不需要在外部单独导出，因为 SolanaProvider 已经完整包裹
  */
-export {
-  ConnectionProvider,
-  WalletProvider,
-  WalletModalProvider,
-} from '@solana/wallet-adapter-react';

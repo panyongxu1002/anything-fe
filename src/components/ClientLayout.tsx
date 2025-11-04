@@ -1,14 +1,19 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { type ReactNode } from 'react'
 
-// Dynamically import Web3Provider with SSR disabled to avoid indexedDB errors during build
-const Web3Provider = dynamic(() => import('@/context/Web3Provider'), {
-  ssr: false,
-})
-
+/**
+ * ClientLayout 组件
+ *
+ * 提供客户端布局和样式包裹
+ *
+ * 注意：Provider 包裹（Web3Provider/SolanaProvider）已移至根布局 (layout.tsx)
+ * 以支持多链选择。ClientLayout 仅负责客户端布局逻辑。
+ *
+ * @param children React 子组件
+ * @returns 包装后的客户端布局
+ */
 export default function ClientLayout({ children }: { children: ReactNode }) {
-  return <Web3Provider>{children}</Web3Provider>
+  return <>{children}</>
 }
 
