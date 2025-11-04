@@ -6,9 +6,7 @@ import QueryResultDisplay from "@/components/QueryResultDisplay";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import PaymentSuccessDisplay from "@/components/PaymentSuccessDisplay";
 import { useX402PaymentAdapter } from "@/hooks/useX402PaymentAdapter";
-import { useChainContext } from "@/hooks/useChainContext";
 import { exampleQueryCategories } from "@/config/exampleQueries";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 interface QueryResponse {
@@ -32,9 +30,6 @@ export default function Home() {
   // Track pending query after wallet connection
   const pendingQueryRef = useRef<string | null>(null);
 
-  // Get chain context
-  const { isSolana } = useChainContext();
-
   // X402 payment hook - auto-selects Solana or EVM based on ACTIVE_CHAIN
   const {
     error: paymentError,
@@ -44,15 +39,8 @@ export default function Home() {
     chain,
   } = useX402PaymentAdapter();
 
-  // RainbowKit connect modal (for EVM chains)
-  const { openConnectModal } = useConnectModal();
-
-  // Solana wallet modal (only in Solana mode)
-  let solanaWalletModal: ReturnType<typeof useWalletModal> | null = null;
-  if (isSolana) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    solanaWalletModal = useWalletModal();
-  }
+  // Solana wallet modal
+  const solanaWalletModal = useWalletModal();
 
   // Auto-execute pending query after wallet connects
   useEffect(() => {
@@ -133,13 +121,7 @@ export default function Home() {
       pendingQueryRef.current = query.trim();
 
       // Open appropriate wallet modal based on active chain
-      if (chain === 'solana' && solanaWalletModal) {
-        solanaWalletModal.setVisible(true);
-      } else if (openConnectModal) {
-        openConnectModal();
-      } else {
-        setError("Please connect your wallet first to make queries");
-      }
+      solanaWalletModal.setVisible(true);
       return;
     }
 

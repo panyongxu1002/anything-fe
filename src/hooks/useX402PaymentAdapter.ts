@@ -1,6 +1,5 @@
 'use client'
 
-import { useX402Payment } from '@/hooks/useX402Payment'
 import { useX402SolanaPayment } from '@/hooks/useX402SolanaPayment'
 import { useChainContext } from '@/hooks/useChainContext'
 import type {
@@ -38,32 +37,19 @@ interface UseX402PaymentAdapterReturn {
 export function useX402PaymentAdapter(): UseX402PaymentAdapterReturn {
   const { activeChain, isSolana } = useChainContext()
 
-  // 条件化 hook 调用：只初始化活跃链对应的支付处理器
-  // 这避免了在缺少相应 Provider 时的运行时错误
-  let paymentHandler: Partial<UseX402PaymentAdapterReturn> | null = null
-
-  if (isSolana) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const solanaPayment = useX402SolanaPayment()
-    paymentHandler = solanaPayment
-  } else {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const evmPayment = useX402Payment()
-    paymentHandler = evmPayment
+  if (!isSolana) {
+    throw new Error(`当前项目仅支持 Solana 链，收到的链类型：${activeChain}`)
   }
 
-  // 确保有一个支付处理器可用
-  if (!paymentHandler) {
-    throw new Error(`No payment handler available for chain: ${activeChain}`)
-  }
+  const solanaPayment = useX402SolanaPayment()
 
   return {
-    loading: paymentHandler.loading ?? false,
-    error: paymentHandler.error ?? null,
-    paymentResponse: paymentHandler.paymentResponse ?? null,
-    executeQuery: paymentHandler.executeQuery ?? (async () => null),
-    isConnected: paymentHandler.isConnected ?? false,
-    address: paymentHandler.address,
-    chain: activeChain,
+    loading: solanaPayment.loading,
+    error: solanaPayment.error,
+    paymentResponse: solanaPayment.paymentResponse,
+    executeQuery: solanaPayment.executeQuery,
+    isConnected: solanaPayment.isConnected,
+    address: solanaPayment.address,
+    chain: 'solana',
   }
 }
