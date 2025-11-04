@@ -206,15 +206,37 @@ export class EvmPaymentProcessor implements PaymentProcessor {
       if (paymentResponseHeader) {
         try {
           // 使用 x402-fetch 提供的解码函数
-          const decodedPayment = decodeXPaymentResponse(paymentResponseHeader);
+          const decodedPayment = decodeXPaymentResponse(paymentResponseHeader) as Record<string, unknown>;
+          const transactionHash =
+            (decodedPayment.transactionHash as string | undefined) ||
+            (decodedPayment.txHash as string | undefined) ||
+            (decodedPayment.transaction as string | undefined) ||
+            'unknown';
+
+          const timestamp =
+            typeof decodedPayment.timestamp === 'number'
+              ? (decodedPayment.timestamp as number)
+              : Date.now();
+
+          const payer =
+            (decodedPayment.payer as string | undefined) ||
+            (decodedPayment.from as string | undefined);
+
+          const payee =
+            (decodedPayment.payee as string | undefined) ||
+            (decodedPayment.to as string | undefined);
+
           paymentInfo = {
-            transactionHash: decodedPayment.transactionHash || decodedPayment.txHash,
-            network: decodedPayment.network || this.chainId,
-            amount: decodedPayment.amount || '0',
-            asset: decodedPayment.asset || decodedPayment.token,
-            timestamp: decodedPayment.timestamp || Date.now(),
-            payer: decodedPayment.payer || decodedPayment.from,
-            payee: decodedPayment.payee || decodedPayment.to,
+            transactionHash,
+            network: (decodedPayment.network as string | undefined) || this.chainId,
+            amount: (decodedPayment.amount as string | undefined) || '0',
+            asset:
+              (decodedPayment.asset as string | undefined) ||
+              (decodedPayment.token as string | undefined) ||
+              'unknown',
+            timestamp,
+            payer,
+            payee,
             rawHeader: paymentResponseHeader,
           };
           this.log('支付信息已解析', paymentInfo);
@@ -262,16 +284,38 @@ export class EvmPaymentProcessor implements PaymentProcessor {
   decodePaymentResponse(headerValue: string): PaymentResponse {
     try {
       // 使用 x402-fetch 提供的解码函数
-      const decoded = decodeXPaymentResponse(headerValue);
+      const decoded = decodeXPaymentResponse(headerValue) as Record<string, unknown>;
+
+      const transactionHash =
+        (decoded.transactionHash as string | undefined) ||
+        (decoded.txHash as string | undefined) ||
+        (decoded.transaction as string | undefined) ||
+        'unknown';
+
+      const timestamp =
+        typeof decoded.timestamp === 'number'
+          ? (decoded.timestamp as number)
+          : Date.now();
+
+      const payer =
+        (decoded.payer as string | undefined) ||
+        (decoded.from as string | undefined);
+
+      const payee =
+        (decoded.payee as string | undefined) ||
+        (decoded.to as string | undefined);
 
       const response: PaymentResponse = {
-        transactionHash: decoded.transactionHash || decoded.txHash,
-        network: decoded.network || this.chainId,
-        amount: decoded.amount || '0',
-        asset: decoded.asset || decoded.token,
-        timestamp: decoded.timestamp || Date.now(),
-        payer: decoded.payer || decoded.from,
-        payee: decoded.payee || decoded.to,
+        transactionHash,
+        network: (decoded.network as string | undefined) || this.chainId,
+        amount: (decoded.amount as string | undefined) || '0',
+        asset:
+          (decoded.asset as string | undefined) ||
+          (decoded.token as string | undefined) ||
+          'unknown',
+        timestamp,
+        payer,
+        payee,
         rawHeader: headerValue,
       };
 

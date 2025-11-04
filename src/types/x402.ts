@@ -54,6 +54,9 @@ export interface X402PaymentResponse {
   chainId?: number
   payer?: string
   amount?: string
+  asset?: string
+  payee?: string
+  timestamp?: number
   success: boolean
   error?: string
 }
@@ -69,5 +72,5 @@ export interface X402QueryResponse {
   error?: string
   raw?: unknown
   durationMs?: number
+  paymentInfo?: X402PaymentResponse
 }
-

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { createSigner } from 'x402-fetch'
 import { SolanaPaymentProcessor } from '@/hooks/payments/SolanaPaymentProcessor'
 import type {
   X402QueryRequest,
@@ -22,52 +22,88 @@ interface UseX402SolanaPaymentReturn {
 }
 
 export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
-  const { connected, publicKey, signMessage } = useWallet()
-
+  const [initializing, setInitializing] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paymentResponse, setPaymentResponse] = useState<X402PaymentResponse | null>(null)
+  const [processor, setProcessor] = useState<SolanaPaymentProcessor | null>(null)
+  const [address, setAddress] = useState<string | undefined>(undefined)
 
-  // Create Solana payment processor with wallet context
-  const paymentProcessor = useMemo(() => {
-    if (!connected || !publicKey || !signMessage) {
-      return null
+  const gatewayUrl = useMemo(() => {
+    return (
+      process.env.NEXT_PUBLIC_X402_GATEWAY_URL ||
+      'https://x402s.bedev.hubble-rpc.xyz/lego/api/v1/query'
+    )
+  }, [])
+
+  const cluster = useMemo(() => {
+    const raw =
+      (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'solana-devnet').toLowerCase()
+    if (raw.startsWith('solana')) {
+      return raw
     }
+    return `solana-${raw}`
+  }, [])
+  const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC
+  const debug = process.env.NEXT_PUBLIC_DEBUG === 'true'
+  const privateKey = process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY
 
-    try {
-      console.log('✅ Created SolanaPaymentProcessor with wallet:', publicKey.toString())
+  useEffect(() => {
+    let cancelled = false
 
-      const processor = new SolanaPaymentProcessor({
-        gatewayUrl: process.env.NEXT_PUBLIC_X402_GATEWAY_URL ||
-          'https://x402s.bedev.hubble-rpc.xyz',
-        chainId: process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet',
-        debug: process.env.NEXT_PUBLIC_DEBUG === 'true',
-      })
-
-      // Initialize processor with wallet
-      processor.initialize({
-        connected,
-        publicKey,
-        signMessage,
-      })
-
-      return processor
-    } catch (err) {
-      console.error('❌ Failed to create SolanaPaymentProcessor:', err)
-      return null
-    }
-  }, [connected, publicKey, signMessage])
-
-  // Execute query with user's wallet for payment
-  const executeQuery = useCallback(
-    async (request: X402QueryRequest): Promise<X402QueryResponse | null> => {
-      if (!connected || !publicKey) {
-        setError('Please connect your Solana wallet first')
-        return null
+    async function setup() {
+      if (!privateKey) {
+        setError('Missing NEXT_PUBLIC_SOLANA_PRIVATE_KEY environment variable')
+        setInitializing(false)
+        return
       }
 
-      if (!paymentProcessor) {
-        setError('Payment processor not ready. Please try again.')
+      try {
+        setInitializing(true)
+        setError(null)
+
+        const signer = await createSigner(cluster, privateKey)
+
+        const paymentProcessor = new SolanaPaymentProcessor({
+          gatewayUrl,
+          chainId: cluster,
+          debug,
+          rpcUrl,
+        })
+
+        paymentProcessor.initialize(signer)
+
+        if (!cancelled) {
+          setProcessor(paymentProcessor)
+          const signerAddress = paymentProcessor.getAddress() ?? undefined
+          setAddress(signerAddress)
+          console.log('✅ Solana signer ready:', signerAddress ?? 'unknown')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('❌ Failed to initialize Solana signer:', err)
+          setError(
+            err instanceof Error ? err.message : 'Failed to initialize Solana signer'
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setInitializing(false)
+        }
+      }
+    }
+
+    setup()
+
+    return () => {
+      cancelled = true
+    }
+  }, [cluster, debug, gatewayUrl, privateKey, rpcUrl])
+
+  const executeQuery = useCallback(
+    async (request: X402QueryRequest): Promise<X402QueryResponse | null> => {
+      if (!processor) {
+        setError('Solana payment processor not ready. Check private key configuration.')
         return null
       }
 
@@ -77,30 +113,20 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
         setPaymentResponse(null)
 
         console.log('\n' + '='.repeat(60))
-        console.log('🚀 Executing Query with Solana Wallet Payment')
+        console.log('🚀 Executing Query with Solana Private Key Payment')
         console.log('='.repeat(60))
-        console.log('👛 Wallet Address:', publicKey.toString())
+        if (address) {
+          console.log('👛 Signer Address:', address)
+        }
         console.log('📤 Request:', request)
 
-        // Build request URL and options
-        const url = API_ROUTE
-        const options: RequestInit = {
+        const response = await processor.fetchWithPayment<X402QueryResponse>(API_ROUTE, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(request),
-        }
-
-        // Use payment processor to fetch with automatic 402 handling
-        // It will automatically:
-        // 1. Detect 402 Payment Required response
-        // 2. Prompt user to sign payment with their wallet
-        // 3. Retry request with payment proof
-        const response = await paymentProcessor.fetchWithPayment<X402QueryResponse>(
-          url,
-          options
-        )
+        })
 
         console.log('📊 Response:', {
           success: response.success,
@@ -109,17 +135,21 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
           hasPaymentInfo: !!response.paymentInfo,
         })
 
-        // Extract payment info if available
         if (response.paymentInfo) {
           console.log('💳 Payment info:', response.paymentInfo)
+          const info = response.paymentInfo
+          const extendedInfo = info as unknown as Record<string, unknown>
           setPaymentResponse({
             success: true,
-            transaction: response.paymentInfo.transactionHash ||
-                        response.paymentInfo.signature,
-            amount: response.paymentInfo.amount,
-            asset: response.paymentInfo.asset,
-            timestamp: response.paymentInfo.timestamp,
-          } as X402PaymentResponse)
+            transaction:
+              (extendedInfo.transactionHash as string | undefined) ||
+              info.transaction ||
+              'unknown',
+            amount: info.amount,
+            asset: info.asset,
+            timestamp: info.timestamp,
+            network: info.network,
+          })
         }
 
         console.log('✅ Query successful!')
@@ -139,15 +169,15 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
         setLoading(false)
       }
     },
-    [connected, publicKey, paymentProcessor]
+    [address, processor]
   )
 
   return {
-    loading,
+    loading: loading || initializing,
     error,
     paymentResponse,
     executeQuery,
-    isConnected: connected,
-    address: publicKey?.toString(),
+    isConnected: Boolean(processor),
+    address,
   }
 }

@@ -1,239 +1,169 @@
 /**
- * Solana 支付处理器实现
+ * Solana 支付处理器实现（私钥签名版）
  *
- * 基于 @solana/wallet-adapter-react 的 useWallet() hook
- * 支持通过 signMessage() 进行链上支付验证
- *
- * 关键特性：
- * - 使用 x402-fetch 库自动处理 402 Payment Required 响应
- * - 通过 signMessage() 生成支付证明
- * - 支持 Phantom、Solflare 等 Solana 钱包
- *
- * 与 EVM 版本的主要差异：
- * - 签名方法：signMessage() 而不是 signTypedData()
- * - 消息格式：Solana 消息而不是 EIP-712 结构化数据
- * - 其他流程由 x402-fetch 库自动处理
+ * 目前 x402 官方 SDK 仅支持 KeyPairSigner 这种私钥签名器，
+ * 因此这里使用 createSigner 创建的签名对象进行支付。
+ * 该实现不依赖浏览器钱包适配器。
  */
 
-import { wrapFetchWithPayment } from 'x402-fetch';
-import type {
-  PaymentProcessor,
-  PaymentResponse,
-  QueryResponse,
-  PaymentError,
-} from '../types/payment';
-import { PaymentError as PaymentErrorClass, PaymentErrorCode } from '../types/payment';
+import { wrapFetchWithPayment, decodeXPaymentResponse, type Signer, type X402Config } from 'x402-fetch';
+import type { PaymentProcessor, PaymentResponse, QueryResponse } from '../types/payment';
+import { PaymentError, PaymentErrorCode } from '../types/payment';
 
-/**
- * Solana 钱包适配器接口
- * 对应 @solana/wallet-adapter-react 的 useWallet() 返回值
- */
-interface SolanaWalletAdapter {
-  /** 钱包是否已连接 */
-  connected: boolean;
-
-  /** 连接的钱包地址 (PublicKey) */
-  publicKey: any | null;
-
-  /** 钱包名称 (如 'Phantom', 'Solflare') */
-  name?: string;
-
-  /** 签署消息方法 */
-  signMessage?: (message: Uint8Array) => Promise<Uint8Array>;
-
-  /** 签署交易方法（可选） */
-  signTransaction?: (transaction: any) => Promise<any>;
-
-  /** 签署多个交易方法（可选） */
-  signAllTransactions?: (transactions: any[]) => Promise<any[]>;
-
-  /** 连接钱包 */
-  connect?: () => Promise<void>;
-
-  /** 断开连接 */
-  disconnect?: () => Promise<void>;
+interface SolanaPaymentProcessorOptions {
+  gatewayUrl: string;
+  chainId: string;
+  debug?: boolean;
+  rpcUrl?: string;
 }
 
-/**
- * Solana 支付处理器
- *
- * 使用示例：
- * ```typescript
- * const { publicKey, signMessage } = useWallet();
- * const processor = new SolanaPaymentProcessor({
- *   gatewayUrl: 'https://x402s.bedev.hubble-rpc.xyz',
- *   chainId: 'solana-devnet'
- * });
- *
- * processor.initialize({ publicKey, signMessage });
- *
- * const result = await processor.fetchWithPayment(
- *   '/api/query',
- *   {
- *     method: 'POST',
- *     body: JSON.stringify({ question: '...' })
- *   }
- * );
- * ```
- */
 export class SolanaPaymentProcessor implements PaymentProcessor {
-  private gatewayUrl: string;
-  private chainId: string;
-  private wallet: SolanaWalletAdapter | null = null;
-  private _wrappedFetch: any = null;
-  private debug: boolean = false;
+  private readonly gatewayUrl: string;
+  private readonly chainId: string;
+  private readonly debug: boolean;
+  private readonly config?: X402Config;
 
-  constructor(options: {
-    gatewayUrl: string;
-    chainId: string;
-    debug?: boolean;
-  }) {
+  private signer: Signer | null = null;
+  private signerAddress: string | null = null;
+  private wrappedFetch: ReturnType<typeof wrapFetchWithPayment> | null = null;
+
+  constructor(options: SolanaPaymentProcessorOptions) {
     this.gatewayUrl = options.gatewayUrl;
     this.chainId = options.chainId;
-    this.debug = options.debug || false;
+    this.debug = options.debug ?? false;
 
-    this.log('初始化 SolanaPaymentProcessor', { gatewayUrl: this.gatewayUrl });
+    if (options.rpcUrl) {
+      this.config = {
+        svmConfig: {
+          rpcUrl: options.rpcUrl,
+        },
+      };
+    }
+
+    this.log('初始化 SolanaPaymentProcessor', {
+      gatewayUrl: this.gatewayUrl,
+      chainId: this.chainId,
+      hasCustomRpc: Boolean(options.rpcUrl),
+    });
   }
 
   /**
    * 初始化处理器
    *
-   * 接收来自 useWallet() hook 的钱包对象
-   * 并创建 x402-fetch 包装器
+   * @param signer 通过 createSigner("solana-devnet", PRIVATE_KEY) 创建的签名器
    */
-  initialize(wallet: SolanaWalletAdapter): void {
-    if (!wallet) {
-      throw new PaymentErrorClass('钱包对象不能为空', PaymentErrorCode.WALLET_NOT_CONNECTED);
+  initialize(signer: Signer): void {
+    if (!signer) {
+      throw new PaymentError('Signer 不能为空', PaymentErrorCode.WALLET_NOT_CONNECTED);
     }
 
-    this.wallet = wallet;
+    this.signer = signer;
+    this.signerAddress = this.extractSignerAddress(signer);
+    this.wrappedFetch = wrapFetchWithPayment(fetch, signer, undefined, undefined, this.config);
 
-    // 检查必要的方法
-    if (!wallet.signMessage) {
-      throw new PaymentErrorClass(
-        '钱包不支持 signMessage 方法',
-        PaymentErrorCode.WALLET_NOT_CONNECTED
-      );
-    }
-
-    this.log('钱包已初始化', {
-      connected: wallet.connected,
-      address: wallet.publicKey?.toString() || 'unknown',
-      walletName: wallet.name,
+    this.log('签名器已初始化', {
+      address: this.signerAddress ?? 'unknown',
     });
-
-    // 创建 x402-fetch 包装器
-    // 关键：传入 signMessage 方法，x402-fetch 将在需要时调用它
-    this._wrappedFetch = wrapFetchWithPayment(fetch, {
-      sign: wallet.signMessage, // Solana 消息签名方法
-    });
-
-    this.log('x402-fetch 包装器已创建');
   }
 
-  /**
-   * 执行支付包装的请求
-   *
-   * 核心流程：
-   * 1. 使用 x402-fetch 发送请求
-   * 2. 如果收到 402 Payment Required，x402-fetch 自动拦截
-   * 3. 调用 wallet.signMessage() 获取签名
-   * 4. 创建 X-PAYMENT 头并重试请求
-   * 5. 返回查询结果
-   */
-  async fetchWithPayment<T = QueryResponse>(
-    url: string,
-    options: RequestInit
-  ): Promise<T> {
+  async fetchWithPayment<T = QueryResponse>(url: string, options: RequestInit): Promise<T> {
+    if (!this.isConnected() || !this.wrappedFetch || !this.signer) {
+      throw new PaymentError('签名器未就绪，请检查环境配置', PaymentErrorCode.WALLET_NOT_CONNECTED);
+    }
+
     try {
-      // 检查钱包连接
-      if (!this.isConnected()) {
-        throw new PaymentErrorClass(
-          '钱包未连接',
-          PaymentErrorCode.WALLET_NOT_CONNECTED
-        );
-      }
-
-      if (!this._wrappedFetch) {
-        throw new PaymentErrorClass(
-          'x402-fetch 尚未初始化',
-          PaymentErrorCode.UNKNOWN
-        );
-      }
-
       this.log('发送请求', {
         url,
-        method: options.method || 'GET',
+        method: options.method ?? 'GET',
+        address: this.signerAddress,
       });
 
-      // 调用 x402-fetch 包装的 fetch
-      // 它会自动处理：
-      // 1. 初始请求
-      // 2. 402 响应拦截
-      // 3. 钱包签署消息
-      // 4. 生成 X-PAYMENT 头
-      // 5. 自动重试请求
-      const response = await this._wrappedFetch(url, options);
+      const response = await this.wrappedFetch(url, options);
 
       this.log('请求完成', {
         status: response.status,
         ok: response.ok,
       });
 
-      // 检查响应状态
-      if (!response.ok && response.status !== 402) {
-        throw new PaymentErrorClass(
-          `请求失败: ${response.status} ${response.statusText}`,
-          PaymentErrorCode.PAYMENT_REQUEST_FAILED
-        );
+      if (!response.ok) {
+        if (response.status === 402) {
+          // wrapFetchWithPayment 理论上不应该保留 402，若出现说明支付验证失败
+          const errorBody = await response.json();
+          this.log('网关返回 402，支付验证失败', errorBody);
+          throw new PaymentError('支付验证失败', PaymentErrorCode.PAYMENT_VERIFICATION_FAILED, errorBody);
+        }
+
+        const text = await response.text();
+        throw new PaymentError(`请求失败: ${response.status} ${response.statusText}`, PaymentErrorCode.PAYMENT_REQUEST_FAILED, text);
       }
 
-      // 解析响应数据
       const data = await response.json();
 
-      // 如果还是 402，说明支付验证失败
-      if (response.status === 402) {
-        this.log('网关返回 402 - 可能是支付验证失败', data);
-        throw new PaymentErrorClass(
-          '支付验证失败',
-          PaymentErrorCode.PAYMENT_VERIFICATION_FAILED,
-          data
-        );
-      }
+      const headerValue =
+        response.headers.get('X-Payment-Response') ||
+        response.headers.get('x-payment-response');
 
-      // 提取支付响应头（如果存在）
-      const paymentResponseHeader = response.headers.get('X-Payment-Response');
       let paymentInfo: PaymentResponse | undefined;
 
-      if (paymentResponseHeader) {
+      if (headerValue) {
         try {
-          paymentInfo = this.decodePaymentResponse(paymentResponseHeader);
-          this.log('支付信息已解析', paymentInfo);
-        } catch (error) {
-          this.log('警告：支付响应头解析失败', error);
-          // 不中断流程，支付可能已成功但响应头格式有问题
+          const decoded = decodeXPaymentResponse(headerValue) as Record<string, unknown>;
+          const transactionHash =
+            (decoded.transactionHash as string | undefined) ||
+            (decoded.signature as string | undefined) ||
+            (decoded.txHash as string | undefined) ||
+            (decoded.transaction as string | undefined) ||
+            'unknown';
+
+          const timestamp =
+            typeof decoded.timestamp === 'number'
+              ? (decoded.timestamp as number)
+              : Date.now();
+
+          const payer =
+            (decoded.payer as string | undefined) ||
+            (decoded.from as string | undefined) ||
+            this.signerAddress || undefined;
+
+          const payee =
+            (decoded.payee as string | undefined) ||
+            (decoded.to as string | undefined);
+
+          paymentInfo = {
+            transactionHash,
+            network: (decoded.network as string | undefined) || this.chainId,
+            amount: (decoded.amount as string | undefined) || '0',
+            asset:
+              (decoded.asset as string | undefined) ||
+              (decoded.mint as string | undefined) ||
+              'unknown',
+            timestamp,
+            payer,
+            payee,
+            rawHeader: headerValue,
+          };
+          this.log('支付信息解析成功', paymentInfo);
+        } catch (err) {
+          this.log('支付响应解析失败', err);
         }
       }
 
-      // 返回格式化的结果
       const result: QueryResponse = {
-        success: true,
-        sqlQuery: data.sqlQuery || data.sql_used,
-        dbResults: data.dbResults || data.data,
+        success: data.success ?? true,
+        sqlQuery: data.sqlQuery ?? data.sql_used ?? null,
+        dbResults: Array.isArray(data.dbResults) ? data.dbResults : Array.isArray(data.data) ? data.data : [],
         paymentInfo,
+        durationMs: data.durationMs,
         raw: data,
       };
 
       return result as T;
     } catch (error) {
-      this.log('错误：', error);
-
-      if (error instanceof PaymentErrorClass) {
+      if (error instanceof PaymentError) {
         throw error;
       }
 
-      // 包装其他错误
-      throw new PaymentErrorClass(
+      throw new PaymentError(
         error instanceof Error ? error.message : String(error),
         PaymentErrorCode.UNKNOWN,
         error
@@ -241,78 +171,89 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
     }
   }
 
-  /**
-   * 解析 X-Payment-Response 头
-   *
-   * 格式：Base64 编码的支付确认信息
-   *
-   * @param headerValue X-Payment-Response 头的值
-   * @returns 解析后的支付信息
-   */
   decodePaymentResponse(headerValue: string): PaymentResponse {
+    if (!headerValue) {
+      throw new PaymentError('X-Payment-Response 为空', PaymentErrorCode.PAYMENT_RESPONSE_PARSE_FAILED);
+    }
+
     try {
-      // 解码 Base64 (使用浏览器原生 atob，兼容浏览器环境)
-      const decoded = atob(headerValue);
-      const parsed = JSON.parse(decoded);
+      const decoded = decodeXPaymentResponse(headerValue) as Record<string, unknown>;
+      const transactionHash =
+        (decoded.transactionHash as string | undefined) ||
+        (decoded.signature as string | undefined) ||
+        (decoded.txHash as string | undefined) ||
+        (decoded.transaction as string | undefined) ||
+        'unknown';
 
-      // 验证必要字段
-      if (!parsed.transactionHash && !parsed.signature) {
-        throw new Error('缺少交易哈希或签名信息');
-      }
+      const timestamp =
+        typeof decoded.timestamp === 'number'
+          ? (decoded.timestamp as number)
+          : Date.now();
 
-      const response: PaymentResponse = {
-        transactionHash: parsed.transactionHash || parsed.signature,
-        network: parsed.network || this.chainId,
-        amount: parsed.amount || '0',
-        asset: parsed.asset || parsed.mint || 'unknown',
-        timestamp: parsed.timestamp || Date.now(),
-        payer: parsed.payer || parsed.from,
-        payee: parsed.payee || parsed.to,
+      const payer =
+        (decoded.payer as string | undefined) ||
+        (decoded.from as string | undefined) ||
+        this.signerAddress || undefined;
+
+      const payee =
+        (decoded.payee as string | undefined) ||
+        (decoded.to as string | undefined);
+
+      return {
+        transactionHash,
+        network: (decoded.network as string | undefined) || this.chainId,
+        amount: (decoded.amount as string | undefined) || '0',
+        asset:
+          (decoded.asset as string | undefined) ||
+          (decoded.mint as string | undefined) ||
+          'unknown',
+        timestamp,
+        payer,
+        payee,
         rawHeader: headerValue,
       };
-
-      return response;
     } catch (error) {
-      throw new PaymentErrorClass(
-        `无法解析支付响应头 (Base64 解码失败): ${error instanceof Error ? error.message : String(error)}`,
+      throw new PaymentError(
+        `无法解析支付响应头: ${error instanceof Error ? error.message : String(error)}`,
         PaymentErrorCode.PAYMENT_RESPONSE_PARSE_FAILED,
         { headerValue, error }
       );
     }
   }
 
-  /**
-   * 检查钱包是否已连接
-   */
   isConnected(): boolean {
-    return this.wallet?.connected || false;
+    return Boolean(this.signer);
   }
 
-  /**
-   * 获取钱包地址
-   */
   getAddress(): string | null {
-    return this.wallet?.publicKey?.toString() || null;
+    return this.signerAddress;
   }
 
-  /**
-   * 获取链 ID
-   */
   getChainId(): string {
     return this.chainId;
   }
 
-  /**
-   * 调试日志
-   */
-  private log(message: string, data?: any): void {
+  private log(message: string, data?: unknown): void {
     if (this.debug) {
-      console.log(`[SolanaPaymentProcessor] ${message}`, data || '');
+      console.log(`[SolanaPaymentProcessor] ${message}`, data ?? '');
     }
   }
-}
 
-/**
- * 导出类型，便于使用
- */
-export type { SolanaWalletAdapter };
+  private extractSignerAddress(signer: Signer): string | null {
+    const candidate = signer as { address?: string };
+    if (candidate.address && typeof candidate.address === 'string') {
+      return candidate.address;
+    }
+
+    const maybePublicKey = signer as { publicKey?: { toBase58?: () => string } };
+    if (maybePublicKey.publicKey && typeof maybePublicKey.publicKey.toBase58 === 'function') {
+      try {
+        return maybePublicKey.publicKey.toBase58();
+      } catch (error) {
+        this.log('无法从 signer.publicKey 提取地址', error);
+      }
+    }
+
+    return null;
+  }
+}
