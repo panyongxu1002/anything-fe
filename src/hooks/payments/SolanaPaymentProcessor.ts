@@ -21,8 +21,8 @@ import type {
   PaymentResponse,
   QueryResponse,
   PaymentError,
-} from './types';
-import { PaymentError as PaymentErrorClass, PaymentErrorCode } from './types';
+} from '../types/payment';
+import { PaymentError as PaymentErrorClass, PaymentErrorCode } from '../types/payment';
 
 /**
  * Solana 钱包适配器接口
@@ -80,7 +80,7 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
   private gatewayUrl: string;
   private chainId: string;
   private wallet: SolanaWalletAdapter | null = null;
-  private fetchWithPayment: any = null;
+  private _wrappedFetch: any = null;
   private debug: boolean = false;
 
   constructor(options: {
@@ -124,7 +124,7 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
 
     // 创建 x402-fetch 包装器
     // 关键：传入 signMessage 方法，x402-fetch 将在需要时调用它
-    this.fetchWithPayment = wrapFetchWithPayment(fetch, {
+    this._wrappedFetch = wrapFetchWithPayment(fetch, {
       sign: wallet.signMessage, // Solana 消息签名方法
     });
 
@@ -154,7 +154,7 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
         );
       }
 
-      if (!this.fetchWithPayment) {
+      if (!this._wrappedFetch) {
         throw new PaymentErrorClass(
           'x402-fetch 尚未初始化',
           PaymentErrorCode.UNKNOWN
@@ -173,7 +173,7 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
       // 3. 钱包签署消息
       // 4. 生成 X-PAYMENT 头
       // 5. 自动重试请求
-      const response = await this.fetchWithPayment(url, options);
+      const response = await this._wrappedFetch(url, options);
 
       this.log('请求完成', {
         status: response.status,
@@ -251,8 +251,8 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
    */
   decodePaymentResponse(headerValue: string): PaymentResponse {
     try {
-      // 解码 Base64
-      const decoded = Buffer.from(headerValue, 'base64').toString('utf8');
+      // 解码 Base64 (使用浏览器原生 atob，兼容浏览器环境)
+      const decoded = atob(headerValue);
       const parsed = JSON.parse(decoded);
 
       // 验证必要字段
@@ -274,7 +274,7 @@ export class SolanaPaymentProcessor implements PaymentProcessor {
       return response;
     } catch (error) {
       throw new PaymentErrorClass(
-        `无法解析支付响应头: ${error instanceof Error ? error.message : String(error)}`,
+        `无法解析支付响应头 (Base64 解码失败): ${error instanceof Error ? error.message : String(error)}`,
         PaymentErrorCode.PAYMENT_RESPONSE_PARSE_FAILED,
         { headerValue, error }
       );

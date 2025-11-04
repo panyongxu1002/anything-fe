@@ -20,8 +20,8 @@ import type {
   PaymentProcessor,
   PaymentResponse,
   QueryResponse,
-} from './types';
-import { PaymentError, PaymentErrorCode } from './types';
+} from '../types/payment';
+import { PaymentError, PaymentErrorCode } from '../types/payment';
 
 /**
  * wagmi 钱包客户端接口
@@ -67,7 +67,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
   private gatewayUrl: string;
   private chainId: string;
   private walletClient: WalletClient | null = null;
-  private fetchWithPayment: any = null;
+  private _wrappedFetch: any = null;
   private debug: boolean = false;
 
   constructor(options: {
@@ -114,7 +114,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
     // 关键：传入 walletClient，x402-fetch 将使用 signTypedData 进行签名
     try {
       // 官方 x402 模式：直接传入 walletClient
-      this.fetchWithPayment = wrapFetchWithPayment(fetch, walletClient as any);
+      this._wrappedFetch = wrapFetchWithPayment(fetch, walletClient as any);
       this.log('x402-fetch 包装器已创建');
     } catch (error) {
       throw new PaymentError(
@@ -148,7 +148,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
         );
       }
 
-      if (!this.fetchWithPayment) {
+      if (!this._wrappedFetch) {
         throw new PaymentError(
           'x402-fetch 尚未初始化',
           PaymentErrorCode.UNKNOWN
@@ -168,7 +168,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
       // 3. 钱包签署 EIP-712 消息
       // 4. 生成 X-PAYMENT 头（EIP-3009 授权）
       // 5. 自动重试请求
-      const response = await this.fetchWithPayment(url, options);
+      const response = await this._wrappedFetch(url, options);
 
       this.log('请求完成', {
         status: response.status,
