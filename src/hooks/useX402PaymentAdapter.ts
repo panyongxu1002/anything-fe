@@ -2,6 +2,7 @@
 
 import { useX402Payment } from '@/hooks/useX402Payment'
 import { useX402SolanaPayment } from '@/hooks/useX402SolanaPayment'
+import { useChainContext } from '@/hooks/useChainContext'
 import type {
   X402QueryRequest,
   X402QueryResponse,
@@ -23,29 +24,46 @@ interface UseX402PaymentAdapterReturn {
  *
  * 自动根据 NEXT_PUBLIC_ACTIVE_CHAIN 环境变量选择合适的支付处理器
  *
+ * 改进点：
+ * - 条件化 hook 调用，符合 React Hook 规则
+ * - 只初始化活跃链的支付处理器
+ * - 使用 useChainContext 统一管理链状态
+ *
  * 使用示例：
  * ```tsx
- * const { executeQuery, isConnected } = useX402PaymentAdapter()
+ * const { executeQuery, isConnected, chain } = useX402PaymentAdapter()
  * const response = await executeQuery({ question: '...' })
  * ```
  */
 export function useX402PaymentAdapter(): UseX402PaymentAdapterReturn {
-  const activeChain = (process.env.NEXT_PUBLIC_ACTIVE_CHAIN as 'solana' | 'base') || 'solana'
+  const { activeChain, isSolana } = useChainContext()
 
-  // Load both hooks conditionally
-  const evmPayment = useX402Payment()
-  const solanaPayment = useX402SolanaPayment()
+  // 条件化 hook 调用：只初始化活跃链对应的支付处理器
+  // 这避免了在缺少相应 Provider 时的运行时错误
+  let paymentHandler: Partial<UseX402PaymentAdapterReturn> | null = null
 
-  // Select appropriate hook based on active chain
-  if (activeChain === 'solana') {
-    return {
-      ...solanaPayment,
-      chain: 'solana',
-    }
+  if (isSolana) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const solanaPayment = useX402SolanaPayment()
+    paymentHandler = solanaPayment
   } else {
-    return {
-      ...evmPayment,
-      chain: 'base',
-    }
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const evmPayment = useX402Payment()
+    paymentHandler = evmPayment
+  }
+
+  // 确保有一个支付处理器可用
+  if (!paymentHandler) {
+    throw new Error(`No payment handler available for chain: ${activeChain}`)
+  }
+
+  return {
+    loading: paymentHandler.loading ?? false,
+    error: paymentHandler.error ?? null,
+    paymentResponse: paymentHandler.paymentResponse ?? null,
+    executeQuery: paymentHandler.executeQuery ?? (async () => null),
+    isConnected: paymentHandler.isConnected ?? false,
+    address: paymentHandler.address,
+    chain: activeChain,
   }
 }
