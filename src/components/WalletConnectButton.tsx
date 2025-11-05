@@ -1,12 +1,14 @@
 'use client'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
+import '@solana/wallet-adapter-react-ui/styles.css'
 
 /**
  * 多链钱包连接按钮
  *
  * 根据活跃链自动选择：
- * - Solana: 显示使用私钥签名的提示
+ * - Solana: WalletMultiButton (支持 Phantom, Solflare 等)
  * - Base/EVM: RainbowKit ConnectButton
  */
 export default function WalletConnectButton() {
@@ -14,8 +16,8 @@ export default function WalletConnectButton() {
 
   if (activeChain === 'solana') {
     return (
-      <div className="wallet-connect-button-solana px-4 py-2 rounded-lg bg-purple-100 text-purple-700 text-sm font-medium shadow-inner">
-        使用配置的 Solana 测试私钥完成支付
+      <div className="wallet-connect-button-solana">
+        <WalletMultiButton className="wallet-adapter-button-trigger bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all" />
       </div>
     )
   }

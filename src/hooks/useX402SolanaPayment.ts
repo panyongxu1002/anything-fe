@@ -1,15 +1,10 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
-import { createSigner } from 'x402-fetch'
-import { SolanaPaymentProcessor } from '@/hooks/payments/SolanaPaymentProcessor'
-import type {
-  X402QueryRequest,
-  X402QueryResponse,
-  X402PaymentResponse
-} from '@/types/x402'
+import { useCallback, useMemo, useState } from 'react'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { createX402Client } from 'x402-solana/client'
+import type { X402QueryRequest, X402QueryResponse, X402PaymentResponse } from '@/types/x402'
 
-// Use local API route to avoid CORS issues
 const API_ROUTE = '/api/query'
 
 interface UseX402SolanaPaymentReturn {
@@ -21,89 +16,70 @@ interface UseX402SolanaPaymentReturn {
   address: string | undefined
 }
 
+const decodeBase64 = (value: string): string => {
+  if (typeof globalThis.atob === 'function') {
+    return globalThis.atob(value)
+  }
+  throw new Error('Base64 decoding is not supported in this environment')
+}
+
+const resolveNetwork = (raw?: string): 'solana' | 'solana-devnet' => {
+  if (!raw) return 'solana-devnet'
+  const normalized = raw.toLowerCase()
+  if (normalized === 'solana' || normalized === 'solana-mainnet' || normalized === 'mainnet') {
+    return 'solana'
+  }
+  if (normalized === 'solana-devnet' || normalized === 'devnet') {
+    return 'solana-devnet'
+  }
+  return (normalized.startsWith('solana') ? normalized : `solana-${normalized}`) as
+    | 'solana'
+    | 'solana-devnet'
+}
+
 export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
-  const [initializing, setInitializing] = useState(true)
+  const { publicKey, signTransaction, connected } = useWallet()
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [paymentResponse, setPaymentResponse] = useState<X402PaymentResponse | null>(null)
-  const [processor, setProcessor] = useState<SolanaPaymentProcessor | null>(null)
-  const [address, setAddress] = useState<string | undefined>(undefined)
 
-  const gatewayUrl = useMemo(() => {
-    return (
-      process.env.NEXT_PUBLIC_X402_GATEWAY_URL ||
-      'https://x402s.bedev.hubble-rpc.xyz/lego/api/v1/query'
-    )
-  }, [])
+  const address = useMemo(() => publicKey?.toBase58(), [publicKey])
 
-  const cluster = useMemo(() => {
-    const raw =
-      (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'solana-devnet').toLowerCase()
-    if (raw.startsWith('solana')) {
-      return raw
+  const network = useMemo(
+    () => resolveNetwork(process.env.NEXT_PUBLIC_SOLANA_CLUSTER),
+    []
+  )
+  const rpcUrl = useMemo(() => process.env.NEXT_PUBLIC_SOLANA_RPC, [])
+  const walletAdapter = useMemo(() => {
+    if (!publicKey || !signTransaction) return null
+
+    return {
+      publicKey: {
+        toString: () => publicKey.toBase58(),
+      },
+      signTransaction: signTransaction,
     }
-    return `solana-${raw}`
-  }, [])
-  const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC
-  const debug = process.env.NEXT_PUBLIC_DEBUG === 'true'
-  const privateKey = process.env.NEXT_PUBLIC_SOLANA_PRIVATE_KEY
+  }, [publicKey, signTransaction])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function setup() {
-      if (!privateKey) {
-        setError('Missing NEXT_PUBLIC_SOLANA_PRIVATE_KEY environment variable')
-        setInitializing(false)
-        return
-      }
-
-      try {
-        setInitializing(true)
-        setError(null)
-
-        const signer = await createSigner(cluster, privateKey)
-
-        const paymentProcessor = new SolanaPaymentProcessor({
-          gatewayUrl,
-          chainId: cluster,
-          debug,
-          rpcUrl,
-        })
-
-        paymentProcessor.initialize(signer)
-
-        if (!cancelled) {
-          setProcessor(paymentProcessor)
-          const signerAddress = paymentProcessor.getAddress() ?? undefined
-          setAddress(signerAddress)
-          console.log('✅ Solana signer ready:', signerAddress ?? 'unknown')
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('❌ Failed to initialize Solana signer:', err)
-          setError(
-            err instanceof Error ? err.message : 'Failed to initialize Solana signer'
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setInitializing(false)
-        }
-      }
+  const x402Client = useMemo(() => {
+    if (!walletAdapter) return null
+    try {
+      return createX402Client({
+        wallet: walletAdapter,
+        network,
+        rpcUrl,
+      })
+    } catch (err) {
+      console.error('❌ Failed to create x402 Solana client:', err)
+      return null
     }
-
-    setup()
-
-    return () => {
-      cancelled = true
-    }
-  }, [cluster, debug, gatewayUrl, privateKey, rpcUrl])
+  }, [walletAdapter, network, rpcUrl])
 
   const executeQuery = useCallback(
     async (request: X402QueryRequest): Promise<X402QueryResponse | null> => {
-      if (!processor) {
-        setError('Solana payment processor not ready. Check private key configuration.')
+      if (!walletAdapter || !x402Client) {
+        setError('Please connect your Solana wallet first')
         return null
       }
 
@@ -113,14 +89,12 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
         setPaymentResponse(null)
 
         console.log('\n' + '='.repeat(60))
-        console.log('🚀 Executing Query with Solana Private Key Payment')
+        console.log('🚀 Executing Query with Solana Wallet Payment')
         console.log('='.repeat(60))
-        if (address) {
-          console.log('👛 Signer Address:', address)
-        }
+        console.log('👛 Wallet Address:', address ?? 'unknown')
         console.log('📤 Request:', request)
 
-        const response = await processor.fetchWithPayment<X402QueryResponse>(API_ROUTE, {
+        const response = await x402Client.fetch(API_ROUTE, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,56 +102,82 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
           body: JSON.stringify(request),
         })
 
-        console.log('📊 Response:', {
-          success: response.success,
-          hasSqlQuery: !!response.sqlQuery,
-          dbResultsCount: response.dbResults?.length || 0,
-          hasPaymentInfo: !!response.paymentInfo,
-        })
+        if (!response.ok) {
+          const errorBody = await response.text()
+          console.error('❌ Payment request failed:', response.status, errorBody)
+          setError(
+            `Payment request failed: ${response.status} ${response.statusText}`
+          )
+          return null
+        }
 
-        if (response.paymentInfo) {
-          console.log('💳 Payment info:', response.paymentInfo)
-          const info = response.paymentInfo
-          const extendedInfo = info as unknown as Record<string, unknown>
-          setPaymentResponse({
-            success: true,
-            transaction:
-              (extendedInfo.transactionHash as string | undefined) ||
-              info.transaction ||
-              'unknown',
-            amount: info.amount,
-            asset: info.asset,
-            timestamp: info.timestamp,
-            network: info.network,
-          })
+        const data = await response.json()
+
+        const paymentHeader =
+          response.headers.get('X-Payment-Response') ||
+          response.headers.get('x-payment-response')
+
+        if (paymentHeader) {
+          try {
+            const decoded = JSON.parse(decodeBase64(paymentHeader)) as Record<
+              string,
+              unknown
+            >
+            const paymentInfo: X402PaymentResponse = {
+              success: true,
+              transaction:
+                (decoded.transactionHash as string | undefined) ||
+                (decoded.transactionId as string | undefined) ||
+                (decoded.signature as string | undefined),
+              network:
+                (decoded.network as string | undefined) ||
+                network,
+              amount: decoded.amount as string | undefined,
+              asset:
+                (decoded.asset as string | undefined) ||
+                (decoded.mint as string | undefined),
+              timestamp:
+                (decoded.timestamp as number | undefined) || Date.now(),
+            }
+            setPaymentResponse(paymentInfo)
+            console.log('💳 Payment Response:', paymentInfo)
+          } catch (decodeError) {
+            console.warn('⚠️  Failed to decode payment response:', decodeError)
+          }
         }
 
         console.log('✅ Query successful!')
         console.log('='.repeat(60) + '\n')
 
-        return response as X402QueryResponse
+        const result: X402QueryResponse = {
+          success: data.success ?? true,
+          sqlQuery: data.sqlQuery ?? null,
+          dbResults: Array.isArray(data.dbResults) ? data.dbResults : [],
+          raw: data.raw ?? data,
+        }
+
+        return result
       } catch (err) {
         console.error('\n' + '❌'.repeat(30))
         console.error('❌ Query Execution Error:')
         console.error('❌ Error:', err)
         console.error('❌'.repeat(30) + '\n')
 
-        const errorMessage = err instanceof Error ? err.message : 'Query execution failed'
-        setError(errorMessage)
+        setError(err instanceof Error ? err.message : 'Query execution failed')
         return null
       } finally {
         setLoading(false)
       }
     },
-    [address, processor]
+    [address, walletAdapter, x402Client, network]
   )
 
   return {
-    loading: loading || initializing,
+    loading,
     error,
     paymentResponse,
     executeQuery,
-    isConnected: Boolean(processor),
+    isConnected: Boolean(connected && walletAdapter),
     address,
   }
 }

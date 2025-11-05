@@ -7,6 +7,7 @@ import WalletConnectButton from "@/components/WalletConnectButton";
 import PaymentSuccessDisplay from "@/components/PaymentSuccessDisplay";
 import { useX402PaymentAdapter } from "@/hooks/useX402PaymentAdapter";
 import { exampleQueryCategories } from "@/config/exampleQueries";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 interface QueryResponse {
   success: boolean;
@@ -37,6 +38,8 @@ export default function Home() {
     isConnected,
     chain,
   } = useX402PaymentAdapter();
+
+  const { setVisible: setWalletModalVisible } = useWalletModal();
 
   // Auto-execute pending query after wallet connects
   useEffect(() => {
@@ -114,7 +117,12 @@ export default function Home() {
     // Ensure支付处理器已准备就绪
     if (!isConnected) {
       pendingQueryRef.current = query.trim();
-      setError("Solana 支付处理器正在初始化，请稍候再试");
+      if (chain === "solana") {
+        setWalletModalVisible(true);
+        setError("请先连接 Solana 钱包以继续查询");
+      } else {
+        setError("Please connect your wallet first to make queries");
+      }
       return;
     }
 

@@ -6,7 +6,7 @@
  *
  * 使用方式：
  *   - EvmPaymentProcessor: 基于 wagmi + EIP-3009
- *   - SolanaPaymentProcessor: 基于 @solana/wallet-adapter + Solana message signing
+ *   - Solana: 在业务层通过 x402-solana + wallet adapter 处理
  */
 
 /**

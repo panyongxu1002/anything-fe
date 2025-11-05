@@ -6,4 +6,3 @@
 
 export * from '../types/payment';
 export { EvmPaymentProcessor, type WalletClient } from './EvmPaymentProcessor';
-export { SolanaPaymentProcessor } from './SolanaPaymentProcessor';
