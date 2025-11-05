@@ -11,3 +11,4 @@ NEXT_PUBLIC_EXPLORER_URL = "https://explorer.solana.com"
 
 # Debugging
 NEXT_PUBLIC_DEBUG = "true"
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "4bb4c1cde1f688a8533ce5f86a2b1fcc"
