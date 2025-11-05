@@ -1,0 +1,13 @@
+[variables]
+# Network configuration
+NEXT_PUBLIC_ACTIVE_CHAIN = "solana"
+NEXT_PUBLIC_SOLANA_CLUSTER = "devnet"
+NEXT_PUBLIC_SOLANA_RPC = "https://api.devnet.solana.com"
+
+# Gateway & token settings
+NEXT_PUBLIC_X402_GATEWAY_URL = "https://x402s.bedev.hubble-rpc.xyz/lego/api/v1/query"
+NEXT_PUBLIC_USDC_MINT = "Gh9ZwEmdLJ8DscKQV6DgaLqRjzPxEKaDkKjNraboLKxw"
+NEXT_PUBLIC_EXPLORER_URL = "https://explorer.solana.com"
+
+# Debugging
+NEXT_PUBLIC_DEBUG = "true"
