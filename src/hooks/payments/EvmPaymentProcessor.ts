@@ -16,6 +16,8 @@
  */
 
 import { wrapFetchWithPayment, decodeXPaymentResponse } from 'x402-fetch';
+import type { Signer } from 'x402/types';
+import type { SignTypedDataParameters } from 'viem';
 import type {
   PaymentProcessor,
   PaymentResponse,
@@ -35,11 +37,16 @@ interface WalletClient {
   };
 
   /** 签署 EIP-712 消息 */
-  signTypedData?: (args: any) => Promise<string>;
+  signTypedData?: (args: SignTypedDataParameters) => Promise<string>;
 
   /** 其他 wagmi 方法 */
-  [key: string]: any;
+  [key: string]: unknown;
 }
+
+type WrappedFetch = (
+  input: RequestInfo,
+  init?: (RequestInit & { __is402Retry?: boolean }) | undefined
+) => Promise<Response>;
 
 /**
  * EVM 支付处理器
@@ -67,7 +74,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
   private gatewayUrl: string;
   private chainId: string;
   private walletClient: WalletClient | null = null;
-  private _wrappedFetch: any = null;
+  private _wrappedFetch: WrappedFetch | null = null;
   private debug: boolean = false;
 
   constructor(options: {
@@ -114,7 +121,10 @@ export class EvmPaymentProcessor implements PaymentProcessor {
     // 关键：传入 walletClient，x402-fetch 将使用 signTypedData 进行签名
     try {
       // 官方 x402 模式：直接传入 walletClient
-      this._wrappedFetch = wrapFetchWithPayment(fetch, walletClient as any);
+      this._wrappedFetch = wrapFetchWithPayment(
+        fetch,
+        walletClient as unknown as Signer
+      );
       this.log('x402-fetch 包装器已创建');
     } catch (error) {
       throw new PaymentError(
@@ -353,7 +363,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
   /**
    * 调试日志
    */
-  private log(message: string, data?: any): void {
+  private log(message: string, data?: unknown): void {
     if (this.debug) {
       console.log(`[EvmPaymentProcessor] ${message}`, data || '');
     }

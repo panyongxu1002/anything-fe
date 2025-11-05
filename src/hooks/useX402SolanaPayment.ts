@@ -121,9 +121,9 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
               success: true,
               transaction: decoded.transaction,
               network: decoded.network ?? network,
-              amount: decoded.amount,
-              asset: decoded.asset,
-              timestamp: decoded.timestamp ?? Date.now(),
+              amount: (decoded as any).amount,
+              asset: (decoded as any).asset,
+              timestamp: (decoded as any).timestamp ?? Date.now(),
             })
           } catch (decodeError) {
             console.warn('⚠️  Failed to decode payment response header:', decodeError)
