@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Forward X-PAYMENT header from client if present
     if (xPaymentHeader) {
       headers['X-PAYMENT'] = xPaymentHeader;
-      console.log('🔐 Forwarding payment header from client');
+      console.log('🔐 Forwarding payment header from client. Length:', xPaymentHeader.length);
     }
 
     // Forward request to x402 gateway
@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
     if (response.status === 402) {
       const data = await response.json();
       console.log('💳 Payment required - returning 402 to client');
-      
+      console.log('💳 Gateway 402 headers:', Object.fromEntries(response.headers.entries()));
+
       return Response.json(data, { 
         status: 402,
         headers: {

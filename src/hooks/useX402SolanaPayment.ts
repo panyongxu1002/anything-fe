@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { createX402Client } from 'x402-solana/client'
+import { createX402Client, type WalletAdapter as X402WalletAdapter } from 'x402-solana'
+import { decodeXPaymentResponse } from 'x402-fetch'
 import type { X402QueryRequest, X402QueryResponse, X402PaymentResponse } from '@/types/x402'
 
 const API_ROUTE = '/api/query'
@@ -14,13 +15,6 @@ interface UseX402SolanaPaymentReturn {
   executeQuery: (request: X402QueryRequest) => Promise<X402QueryResponse | null>
   isConnected: boolean
   address: string | undefined
-}
-
-const decodeBase64 = (value: string): string => {
-  if (typeof globalThis.atob === 'function') {
-    return globalThis.atob(value)
-  }
-  throw new Error('Base64 decoding is not supported in this environment')
 }
 
 const resolveNetwork = (raw?: string): 'solana' | 'solana-devnet' => {
@@ -45,33 +39,37 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
   const [paymentResponse, setPaymentResponse] = useState<X402PaymentResponse | null>(null)
 
   const address = useMemo(() => publicKey?.toBase58(), [publicKey])
-
   const network = useMemo(
     () => resolveNetwork(process.env.NEXT_PUBLIC_SOLANA_CLUSTER),
     []
   )
   const rpcUrl = useMemo(() => process.env.NEXT_PUBLIC_SOLANA_RPC, [])
-  const walletAdapter = useMemo(() => {
-    if (!publicKey || !signTransaction) return null
+
+  const walletAdapter = useMemo<X402WalletAdapter | null>(() => {
+    if (!publicKey || !signTransaction) {
+      return null
+    }
 
     return {
-      publicKey: {
-        toString: () => publicKey.toBase58(),
-      },
-      signTransaction: signTransaction,
+      publicKey,
+      address: publicKey.toBase58(),
+      signTransaction,
     }
   }, [publicKey, signTransaction])
 
   const x402Client = useMemo(() => {
-    if (!walletAdapter) return null
+    if (!walletAdapter) {
+      return null
+    }
+
     try {
       return createX402Client({
         wallet: walletAdapter,
         network,
         rpcUrl,
       })
-    } catch (err) {
-      console.error('❌ Failed to create x402 Solana client:', err)
+    } catch (clientError) {
+      console.error('❌ Failed to create x402 Solana client:', clientError)
       return null
     }
   }, [walletAdapter, network, rpcUrl])
@@ -79,7 +77,7 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
   const executeQuery = useCallback(
     async (request: X402QueryRequest): Promise<X402QueryResponse | null> => {
       if (!walletAdapter || !x402Client) {
-        setError('Please connect your Solana wallet first')
+        setError('请先连接 Solana 钱包')
         return null
       }
 
@@ -87,12 +85,6 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
         setLoading(true)
         setError(null)
         setPaymentResponse(null)
-
-        console.log('\n' + '='.repeat(60))
-        console.log('🚀 Executing Query with Solana Wallet Payment')
-        console.log('='.repeat(60))
-        console.log('👛 Wallet Address:', address ?? 'unknown')
-        console.log('📤 Request:', request)
 
         const response = await x402Client.fetch(API_ROUTE, {
           method: 'POST',
@@ -102,13 +94,18 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
           body: JSON.stringify(request),
         })
 
-        if (!response.ok) {
-          const errorBody = await response.text()
-          console.error('❌ Payment request failed:', response.status, errorBody)
-          setError(
-            `Payment request failed: ${response.status} ${response.statusText}`
+        if (response.status === 402) {
+          const body = await response.text()
+          throw new Error(
+            `Payment is still required: ${body || 'gateway returned 402 again'}`
           )
-          return null
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(
+            `Query failed: ${response.status} ${response.statusText} ${errorText}`
+          )
         }
 
         const data = await response.json()
@@ -119,44 +116,26 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
 
         if (paymentHeader) {
           try {
-            const decoded = JSON.parse(decodeBase64(paymentHeader)) as Record<
-              string,
-              unknown
-            >
-            const paymentInfo: X402PaymentResponse = {
+            const decoded = decodeXPaymentResponse(paymentHeader)
+            setPaymentResponse({
               success: true,
-              transaction:
-                (decoded.transactionHash as string | undefined) ||
-                (decoded.transactionId as string | undefined) ||
-                (decoded.signature as string | undefined),
-              network:
-                (decoded.network as string | undefined) ||
-                network,
-              amount: decoded.amount as string | undefined,
-              asset:
-                (decoded.asset as string | undefined) ||
-                (decoded.mint as string | undefined),
-              timestamp:
-                (decoded.timestamp as number | undefined) || Date.now(),
-            }
-            setPaymentResponse(paymentInfo)
-            console.log('💳 Payment Response:', paymentInfo)
+              transaction: decoded.transaction,
+              network: decoded.network ?? network,
+              amount: decoded.amount,
+              asset: decoded.asset,
+              timestamp: decoded.timestamp ?? Date.now(),
+            })
           } catch (decodeError) {
-            console.warn('⚠️  Failed to decode payment response:', decodeError)
+            console.warn('⚠️  Failed to decode payment response header:', decodeError)
           }
         }
 
-        console.log('✅ Query successful!')
-        console.log('='.repeat(60) + '\n')
-
-        const result: X402QueryResponse = {
+        return {
           success: data.success ?? true,
           sqlQuery: data.sqlQuery ?? null,
           dbResults: Array.isArray(data.dbResults) ? data.dbResults : [],
           raw: data.raw ?? data,
         }
-
-        return result
       } catch (err) {
         console.error('\n' + '❌'.repeat(30))
         console.error('❌ Query Execution Error:')
@@ -169,7 +148,7 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
         setLoading(false)
       }
     },
-    [address, walletAdapter, x402Client, network]
+    [network, walletAdapter, x402Client]
   )
 
   return {
@@ -177,7 +156,7 @@ export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
     error,
     paymentResponse,
     executeQuery,
-    isConnected: Boolean(connected && walletAdapter),
+    isConnected: Boolean(connected && walletAdapter && x402Client),
     address,
   }
 }
