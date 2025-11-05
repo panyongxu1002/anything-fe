@@ -16,7 +16,6 @@
  */
 
 import { wrapFetchWithPayment, decodeXPaymentResponse } from 'x402-fetch';
-import type { Signer } from 'x402/types';
 import type { SignTypedDataParameters } from 'viem';
 import type {
   PaymentProcessor,
@@ -123,7 +122,7 @@ export class EvmPaymentProcessor implements PaymentProcessor {
       // 官方 x402 模式：直接传入 walletClient
       this._wrappedFetch = wrapFetchWithPayment(
         fetch,
-        walletClient as unknown as Signer
+        walletClient as any
       );
       this.log('x402-fetch 包装器已创建');
     } catch (error) {
