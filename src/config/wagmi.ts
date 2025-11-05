@@ -5,7 +5,7 @@ import { base } from 'wagmi/chains'
 
 const chains = [base] as const
 
-export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "4bb4c1cde1f688a8533ce5f86a2b1fcc"
 
 if (!projectId) {
   console.warn(
