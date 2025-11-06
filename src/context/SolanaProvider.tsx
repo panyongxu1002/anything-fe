@@ -20,9 +20,6 @@
 import { useMemo } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
-import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
-import { BackpackWalletAdapter } from '@solana/wallet-adapter-backpack';
 import { clusterApiUrl } from '@solana/web3.js';
 
 // 导入样式（WalletModalProvider 需要）
@@ -73,21 +70,17 @@ export function SolanaProvider({
   /**
    * 钱包适配器列表
    *
-   * 支持的钱包（按推荐顺序）：
-   * 1. Phantom - 最广泛使用的 Solana 钱包
-   * 2. Solflare - 功能丰富的多链钱包
-   * 3. Backpack - 现代 Solana 钱包
+   * 注：使用 Wallet Standard 自动发现机制
+   * @solana/wallet-standard 会自动检测并注册浏览器中安装的钱包
+   * 包括 Phantom、Solflare、Backpack 等所有遵循 Wallet Standard (EIP-6963) 的钱包
    *
-   * 初期硬编码钱包列表，后续可扩展或动态加载
+   * 优势：
+   * - 消除 Legacy Adapter 双重注册问题
+   * - 自动支持新钱包，无需代码更改
+   * - 减少 bundle 体积
+   * - 符合 Solana 生态现代最佳实践
    */
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-      new BackpackWalletAdapter(),
-    ],
-    []
-  );
+  const wallets = useMemo(() => [], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>

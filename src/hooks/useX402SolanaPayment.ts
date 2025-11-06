@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { createX402Client, type WalletAdapter as X402WalletAdapter } from 'x402-solana'
 import { decodeXPaymentResponse } from 'x402-fetch'
@@ -33,6 +33,16 @@ const resolveNetwork = (raw?: string): 'solana' | 'solana-devnet' => {
 
 export function useX402SolanaPayment(): UseX402SolanaPaymentReturn {
   const { publicKey, signTransaction, connected } = useWallet()
+
+  // 诊断日志：监测钱包连接状态
+  useEffect(() => {
+    console.log('[Wallet State] Connection diagnostic:', {
+      connected,
+      publicKey: publicKey?.toBase58(),
+      hasSignTransaction: !!signTransaction,
+      timestamp: new Date().toISOString(),
+    })
+  }, [connected, publicKey, signTransaction])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
