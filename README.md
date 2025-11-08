@@ -1,202 +1,160 @@
-# Hubble AI Assistant
+## Hubble AI Assistant (Solana)
 
-A Next.js application that integrates with x402 payment protocol for paid API queries using user's browser wallets.
+Next.js web app that runs paid SQL-style queries through the x402 protocol using Solana devnet wallets such as Phantom, Solflare, and Backpack. The entire payment flow, wallet UX, and troubleshooting guidance in this README now targets Solana only.
 
 ## Features
 
-- 🤖 **AI-Powered SQL Generation**: Convert natural language questions to SQL queries
-- 💳 **x402 Payment Integration**: User-pays model with browser wallet support
-- 👛 **RainbowKit Wallet Connection**: Connect with MetaMask, Coinbase Wallet, and more
-- 📊 **Real-time Results**: Display query results with syntax highlighting
-- 📱 **Responsive Design**: Works seamlessly on desktop and mobile
-- 🔗 **Multi-Chain Support**: Solana, Base, BNB, Ethereum (more coming soon)
+- 🤖 Natural-language-to-SQL generation with syntax-highlighted results
+- 💳 x402 Solana payments handled transparently through `x402-solana`
+- 👛 Wallet Adapter UI with Phantom / Solflare / Backpack support
+- 📊 Real-time result rendering plus decoded payment receipts
+- 🛠 Devtools-friendly logging for payment retries and 402 handling
 
 ## Quick Start
 
-### 1. Install Dependencies
+### 1. Install dependencies
 
 ```bash
 pnpm install
 ```
 
-### 2. Configure Environment
+### 2. Configure environment
 
-Create `.env.local` file:
+Create `.env.local` and copy the Solana defaults (adjust as needed for your gateway or RPC):
 
 ```bash
-# X402 Gateway URL (optional, has default)
-NEXT_PUBLIC_X402_GATEWAY_URL=https://x402.bedev.hubble-rpc.xyz/lego/api/v1/query
+NEXT_PUBLIC_ACTIVE_CHAIN=solana
 
-# WalletConnect Project ID (required for RainbowKit)
-# Get yours at: https://cloud.walletconnect.com
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+# Solana network
+NEXT_PUBLIC_SOLANA_CLUSTER=devnet
+NEXT_PUBLIC_SOLANA_RPC=https://api.devnet.solana.com
+
+# x402 gateway + SPL token metadata
+NEXT_PUBLIC_X402_GATEWAY_URL=https://x402s.bedev.hubble-rpc.xyz
+NEXT_PUBLIC_USDC_MINT=Gh9ZwEmdLJ8DscKQV6DgaLqRjzPxEKaDkKjNraboLKxw
+
+# Explorer + diagnostics
+NEXT_PUBLIC_EXPLORER_URL=https://explorer.solana.com
+NEXT_PUBLIC_DEBUG=true
 ```
 
-⚠️ **Important**: Your wallet needs USDC on Base Sepolia testnet to make payments.
+> 💡 These values match the settings used throughout `docs/SOLANA_MIGRATION_SUMMARY.md` and `docs/PHASE7_E2E_TEST.md`. Override them per deployment (e.g., mainnet RPC, custom explorer, different gateway).
 
-### 3. Run Development Server
+### 3. Run the dev server
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open http://localhost:3000 and connect your Solana wallet.
 
-## Payment Setup
+## Solana Payment Setup
 
-### Get Test USDC on Base Sepolia
+1. **Install a wallet** – Phantom (recommended), Solflare, or Backpack extensions all work with the included Wallet Adapter UI.
+2. **Fund devnet SOL** – Run `solana airdrop 1 <WALLET_ADDRESS> -u devnet` or use any devnet SOL faucet so signatures can be produced.
+3. **Fund devnet USDC**
+   - Visit https://faucet.circle.com/
+   - Connect Phantom/Solflare
+   - Pick **Solana devnet**, enter your address, and request the standard 100 USDC test tokens.
+4. **Connect & test**
+   - Click “Connect Wallet” in the app
+   - Approve the Wallet Adapter popup
+   - Submit a query; the first request should return HTTP 402, triggering the Solana signing flow, after which results populate alongside payment details.
 
-1. **Install Wallet**
-   - Install [MetaMask](https://metamask.io/) or any Ethereum wallet
-
-2. **Get Base Sepolia ETH**
-   - Visit [Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet)
-   - Enter your wallet address
-   - Receive test ETH
-
-3. **Get Base Sepolia USDC**
-   - Visit [Circle Faucet](https://faucet.circle.com/)
-   - Request USDC on Base Sepolia
-
-4. **Test the Integration**
-   - Connect your wallet in the app
-   - Enter a query
-   - Approve the payment signature in your wallet
-   - View results and payment confirmation
-
-## How It Works
-
-### Payment Flow
+## Payment Flow (Solana)
 
 ```
-Connect Wallet → User Query → 402 Payment Required → User Signs → Payment Sent → Result
+Wallet Connect → Query POST /api/query → 402 from gateway → Solana signTransaction → x402-solana retries with X-PAYMENT → Results + receipt
 ```
 
-1. **User connects wallet** - Click "Connect Wallet" button (RainbowKit)
-2. **User submits query** - Enter natural language question
-3. **Gateway returns 402** - Payment required for this endpoint
-4. **x402-fetch intercepts** - Detects 402 response automatically
-5. **User signs payment** - Wallet prompts for EIP-3009 authorization signature
-6. **Request retries** - Sends query with payment proof in X-PAYMENT header
-7. **Success** - Display results + payment confirmation with transaction link
+Implementation details:
 
-### Technologies
+1. `useX402SolanaPayment` wraps `x402-solana` and the Wallet Adapter to build the `fetch` client (see `src/hooks/useX402SolanaPayment.ts`).
+2. When the gateway replies with 402, the hook invokes `signTransaction` and resubmits with the payment proof header.
+3. The client decodes the `X-Payment-Response` header via `x402-fetch` to display transaction signatures, network (`solana-devnet`), amount, and timestamp.
+4. `WalletConnectButton` renders the Solana `WalletMultiButton` so all supported wallets share a consistent UX.
 
-- **Next.js 15** - React framework with App Router
-- **x402-fetch** - Payment protocol client (browser wallet support)
-- **RainbowKit** - Wallet connection UI
-- **Wagmi** - React Hooks for Ethereum
-- **Viem** - Ethereum library
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Styling
+## Technologies
 
-## Project Structure
+- **Next.js 15** – App Router UI
+- **x402-solana & x402-fetch** – Solana-native payment client and response decoder
+- **@solana/web3.js** – RPC + transaction utilities
+- **@solana/wallet-adapter** stack – Provider + UI components
+- **TypeScript + Tailwind CSS** – DX and styling
+
+## Project Structure (Solana highlights)
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Root layout
+│   ├── layout.tsx          # Chooses Solana provider based on env
 │   └── page.tsx            # Main query interface
-├── hooks/
-│   └── useX402Payment.ts   # Payment logic
 ├── components/
-│   ├── QueryResultDisplay.tsx  # Results UI
-│   └── ResultDisplay.tsx       # JSON display
-├── types/
-│   └── x402.ts             # TypeScript types
-└── config/
-    └── exampleQueries.ts   # Example queries
+│   └── WalletConnectButton.tsx  # Solana WalletMultiButton
+├── context/
+│   └── SolanaProvider.tsx  # ConnectionProvider + WalletProvider setup
+├── hooks/
+│   ├── useX402SolanaPayment.ts   # Payment flow hook
+│   └── useX402PaymentAdapter.ts  # Routes to Solana hook (default)
+├── config/
+│   ├── solana.ts           # Cluster, explorer, formatter helpers
+│   └── explorer.ts         # Utility for Solana tx/address URLs
+└── docs/
+    ├── SOLANA_MIGRATION_SUMMARY.md
+    └── PHASE7_E2E_TEST.md
 ```
 
 ## Documentation
 
-- **[X402 EOA Integration Guide](./X402_EOA_INTEGRATION.md)** - Detailed browser wallet integration guide
-- **[Official x402 Browser Wallet Example](https://github.com/coinbase/x402/tree/main/examples/typescript/fullstack/browser-wallet-example)** - Reference implementation
-- **[Coinbase x402 Docs](https://docs.cdp.coinbase.com/x402/)** - Official documentation
-- **[x402 Specification](https://github.com/coinbase/x402/blob/main/specs/x402-specification.md)** - Technical specification
+- `docs/SOLANA_MIGRATION_SUMMARY.md` – Architecture, env matrix, and hook details
+- `docs/PHASE7_E2E_TEST.md` – End-to-end checklist on Solana devnet
+- `scripts/test-solana-signing.ts` – CLI harness for validating `signMessage`/`signTransaction`
+- `X402_EOA_INTEGRATION.md` – Legacy EVM notes (not required for current flow but kept for reference)
 
-## Security
+## Environment Variables
 
-### User-Pays Model
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_ACTIVE_CHAIN` | yes | Must be `solana` for this build |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | yes | `devnet`, `mainnet-beta`, etc. (`devnet` default) |
+| `NEXT_PUBLIC_SOLANA_RPC` | yes | RPC URL passed to Wallet Adapter + x402 client |
+| `NEXT_PUBLIC_X402_GATEWAY_URL` | yes | Solana-enabled x402 gateway endpoint |
+| `NEXT_PUBLIC_USDC_MINT` | yes | SPL USDC mint (devnet default provided) |
+| `NEXT_PUBLIC_EXPLORER_URL` | optional | Base URL for explorer links (defaults to `https://explorer.solana.com`) |
+| `NEXT_PUBLIC_DEBUG` | optional | Enable verbose client logging |
+| `NEXT_PUBLIC_PAYAI_FACILITATOR_URL` / `NEXT_PUBLIC_PAYAI_API_KEY` | optional | Forwarded to `solana.ts` payai overrides if needed |
 
-- ✅ **No private keys on server** - Users control their own wallets
-- ✅ **User approval required** - Every payment requires explicit wallet signature
-- ✅ **Transparent pricing** - Users see payment amount before signing
-- ✅ **Gasless for users** - x402 uses EIP-3009 (no gas required for signature)
+## Troubleshooting (Solana)
 
-### Production Deployment
+- **“请先连接 Solana 钱包”** – Ensure Phantom/Solflare is unlocked and reload so Wallet Adapter can detect it.
+- **“Payment is still required” after signing** – Confirm devnet USDC balance, verify the gateway URL, and check `NEXT_PUBLIC_USDC_MINT`.
+- **No payment receipt displayed** – Inspect the response headers in devtools; `X-Payment-Response` must be present for decoding.
+- **RPC errors or timeouts** – Override `NEXT_PUBLIC_SOLANA_RPC` with a more reliable endpoint (e.g., `https://api.devnet.solana.com` or a dedicated provider).
 
-Use environment variables on your hosting platform:
-- **Vercel**: Project Settings → Environment Variables
-- **Netlify**: Site Settings → Environment Variables
-- **Railway**: Project → Variables
+Refer to `docs/PHASE7_E2E_TEST.md` for step-by-step debugging commands, expected console logs, and network traces.
 
-## Development
+## Example Queries
 
-### Available Scripts
+- “Show me the total USDC spend last week”
+- “List top 5 merchants by revenue”
+- “What is the average basket size today?”
 
-```bash
-# Development server
-pnpm dev
-
-# Production build
-pnpm build
-
-# Start production server
-pnpm start
-
-# Lint code
-pnpm lint
-```
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_X402_GATEWAY_URL` | Yes | x402 gateway endpoint |
-| `NEXT_PUBLIC_CLIENT_PRIVATE_KEY` | Yes | Ethereum private key with USDC |
-
-## Troubleshooting
-
-### "Payment account not configured"
-
-**Solution**: Set `NEXT_PUBLIC_CLIENT_PRIVATE_KEY` in `.env.local`
-
-### "Insufficient funds"
-
-**Solution**: Add USDC to your account on Base Sepolia
-
-### Payment succeeds but no results
-
-**Check**:
-1. Console logs for detailed errors
-2. Network is Base Sepolia (chainId: 84532)
-3. USDC token address is correct
-
-## Examples
-
-### Example Queries
-
-- "What is my total balance?"
-- "Show me all transactions from yesterday"
-- "List the top 10 users by transaction count"
-- "What's the average transaction value?"
-
-See [exampleQueries.ts](./src/config/exampleQueries.ts) for more examples.
+Additional prompts live in `src/config/exampleQueries.ts`.
 
 ## References
 
-- [x402 Protocol](https://docs.cdp.coinbase.com/x402/)
-- [Base Network](https://docs.base.org/)
-- [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)
-- [Viem Documentation](https://viem.sh/)
+- x402 protocol docs – https://docs.cdp.coinbase.com/x402/
+- x402 Solana gateway repo – https://github.com/HubbleVision/x402-solana-gateway
+- Solana developer docs – https://docs.solana.com
+- Circle devnet USDC faucet – https://faucet.circle.com/
+- Solana Explorer – https://explorer.solana.com
 
 ## Support
 
-- [Coinbase Developer Discord](https://discord.com/invite/cdp)
-- [GitHub Issues](https://github.com/coinbase/x402/issues)
+- Hubble / x402 engineering updates: internal Slack
+- Coinbase Developer Discord: https://discord.com/invite/cdp
+- GitHub issues for x402: https://github.com/coinbase/x402/issues
 
 ## License
 
 MIT
-
